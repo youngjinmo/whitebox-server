@@ -6,8 +6,7 @@ import io.andy.shorten_url.user.service.UserService;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -15,38 +14,46 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Objects;
 
+@Slf4j
 @RequestMapping("/user")
 @RestController
 public class UserController {
-    @Autowired private final UserService userService;
-    @Autowired private final SessionService sessionService;
-    private final Logger logger = LoggerFactory.getLogger(UserController.class);
+    private final UserService userService;
+    private final SessionService sessionService;
 
-    public UserController(UserService userService, SessionService sessionService) {
+    @Autowired
+    UserController(UserService userService, SessionService sessionService) {
         this.userService = userService;
         this.sessionService = sessionService;
     }
 
     @ResponseBody
     @PostMapping("/create")
-    public UserResponseDto SignUp(@RequestParam String username, @RequestParam String password) {
-        return userService.createUserByUsername(new UserSignUpDto(username, password));
+    public UserResponseDto SignUp(HttpServletRequest request, @RequestBody String username, @RequestBody String password) {
+        String ipAddress = request.getRemoteAddr();
+        String userAgent = request.getHeader("User-Agent");
+
+        return userService.createUserByUsername(new UserSignUpDto(username, ipAddress, userAgent), password);
     }
 
     @PostMapping("/login")
-    public UserResponseDto Login(HttpServletRequest request, @RequestParam String username, @RequestParam String password) {
+    public UserResponseDto Login(HttpServletRequest request, @RequestBody String username, @RequestBody String password) {
         String ip = request.getRemoteAddr();
         String userAgent = request.getHeader("User-Agent");
+        UserLoginDto loginDto = new UserLoginDto(username, ip, userAgent);
 
-        UserResponseDto user = userService.login(new UserLoginDto(username, password, ip, userAgent));
-        sessionService.setSessionById(request, user.getId());
+        UserResponseDto user = userService.login(loginDto, password);
+        sessionService.setSessionById(request, user.id());
 
         return user;
     }
 
     @DeleteMapping("/logout/{id}")
     public void logout(HttpServletRequest request, @PathVariable("id") Long id) {
-        userService.logout(new UserLogOutDto(id));
+        String ip = request.getRemoteAddr();
+        String userAgent = request.getHeader("User-Agent");
+
+        userService.logout(new UserLogOutDto(id, ip, userAgent));
         sessionService.removeSessionById(request, id);
     }
 
@@ -60,39 +67,40 @@ public class UserController {
        return userService.findById(id);
     }
 
-    @GetMapping("/")
+    @GetMapping("/find")
     public UserResponseDto findUserByUsername(@RequestParam String username) {
         return userService.findByUsername(username);
     }
 
-    @PatchMapping("/{id}")
-    public UserResponseDto UpdateUsername(HttpServletRequest request, @PathVariable("id") Long id, @RequestParam String username) {
-        validateSession(request, String.format("id=%s failed to update username by invalid session", id));
+    @PatchMapping("/{id}/username")
+    public UserResponseDto UpdateUsername(HttpServletRequest request, @PathVariable("id") Long id, @RequestBody String username) {
+        validateSession(request);
         return userService.updateUsernameById(id, username);
     }
 
-    @PatchMapping("/password/{id}")
-    public UserResponseDto UpdatePassword(HttpServletRequest request, @PathVariable("id") Long id, @RequestParam String password) {
-        validateSession(request, String.format("id=%s failed to update password by invalid session", id));
+    @PatchMapping("/{id}/password")
+    public UserResponseDto UpdatePassword(HttpServletRequest request, @PathVariable("id") Long id, @RequestBody String password) {
+        validateSession(request);
         return userService.updatePasswordById(id, password);
     }
 
     @DeleteMapping("/{id}")
-    public void delete(HttpServletRequest request, @PathVariable("id") Long id) {
-        validateSession(request, String.format("id=%s failed to delete by invalid session", id));
+    public void deleteUser(HttpServletRequest request, @PathVariable("id") Long id) {
+        validateSession(request);
 
         String ip = request.getRemoteAddr();
         String userAgent = request.getHeader("User-Agent");
-        logger.info("user try to delete id={}, ip={}, user-agent={}", id,ip,userAgent);
+        log.info("user try to delete id={}, ip={}, user-agent={}", id,ip,userAgent);
 
         userService.deleteById(new UserDeleteDto(id, ip, userAgent));
     }
 
-    private void validateSession(HttpServletRequest request, String message) {
+    private void validateSession(HttpServletRequest request) {
         if (Objects.isNull(sessionService.getSession(request))) {
             String ip = request.getRemoteAddr();
             String userAgent = request.getHeader("User-Agent");
-            logger.debug("invalidate session, message={}, ip={}, user-agent={}", message, ip,userAgent);
+
+            log.debug("invalidate session, ip={}, user-agent={}", ip,userAgent);
             throw new IllegalStateException("INVALIDATE SESSION");
         }
     }
