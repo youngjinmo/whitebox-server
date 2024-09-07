@@ -1,0 +1,25 @@
+package io.andy.shorten_url.util.random;
+
+import java.util.Random;
+
+public class RandomURL implements RandomObject<StringBuilder>{
+
+    private final String LowerCase = "abcdefghijklmnopqrstuvwxyz";
+    private final String UpperCase = LowerCase.toUpperCase();
+    private final String Digits = "0123456789";
+    private final String AllCharacters = LowerCase.concat(UpperCase).concat(Digits);
+    private final Random random = new Random();
+
+    @Override
+    public StringBuilder generate(int length) {
+        if (length <= 0) {
+            throw new IllegalArgumentException("Length must be greater than 0");
+        }
+        StringBuilder sb = new StringBuilder(length);
+        for (int i = 0; i < length; i++) {
+            int randomInt = random.nextInt(AllCharacters.length());
+            sb.append(AllCharacters.charAt(randomInt));
+        }
+        return sb;
+    }
+}
