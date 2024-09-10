@@ -7,12 +7,7 @@ import io.andy.shorten_url.userLog.dto.AccessInfoDto;
 import io.andy.shorten_url.userLog.dto.UpdateInfoDto;
 import io.andy.shorten_url.userLog.dto.UpdatePrivacyInfoDto;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -47,7 +42,6 @@ public class UserLog {
         this.message = userLogDto.message();
         this.ipAddress = userLogDto.ipAddress();
         this.userAgent = userLogDto.userAgent();
-        this.createdAt = LocalDateTime.now();
     }
 
     // 사용자 변경 정보(UPDATE)를 저장하는 UserLog 생성자
@@ -58,7 +52,6 @@ public class UserLog {
         this.message = userLogDto.message();
         this.preValue = userLogDto.preValue();
         this.postValue = userLogDto.postValue();
-        this.createdAt = LocalDateTime.now();
     }
 
     // 민감 정보 변경시 저장하는 UserLog 생성자
@@ -67,6 +60,10 @@ public class UserLog {
         this.state = userLogDto.state();
         this.role = userLogDto.role();
         this.message = userLogDto.message();
+    }
+
+    @PrePersist
+    protected void onCreate() {
         this.createdAt = LocalDateTime.now();
     }
 }
