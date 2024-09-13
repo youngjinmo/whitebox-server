@@ -2,7 +2,7 @@ package io.andy.shorten_url.util.random;
 
 import java.util.Random;
 
-public class RandomURL implements RandomObject<StringBuilder>{
+public class RandomURL implements RandomUtility {
 
     private final String LowerCase = "abcdefghijklmnopqrstuvwxyz";
     private final String UpperCase = LowerCase.toUpperCase();
@@ -11,7 +11,7 @@ public class RandomURL implements RandomObject<StringBuilder>{
     private final Random random = new Random();
 
     @Override
-    public StringBuilder generate(int length) {
+    public String generate(int length) {
         if (length <= 0) {
             throw new IllegalArgumentException("Length must be greater than 0");
         }
@@ -20,6 +20,6 @@ public class RandomURL implements RandomObject<StringBuilder>{
             int randomInt = random.nextInt(AllCharacters.length());
             sb.append(AllCharacters.charAt(randomInt));
         }
-        return sb;
+        return String.valueOf(sb);
     }
 }

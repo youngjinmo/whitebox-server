@@ -1,6 +1,6 @@
 package io.andy.shorten_url.util.random;
 
-public class MockRandom implements RandomObject<String>{
+public class MockRandom implements RandomUtility {
     private final String mockData;
 
     public MockRandom(String mockData) {
