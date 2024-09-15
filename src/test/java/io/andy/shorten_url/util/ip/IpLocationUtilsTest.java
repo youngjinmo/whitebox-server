@@ -18,6 +18,6 @@ class IpLocationUtilsTest {
 
         assertNotNull(response);
         assertEquals(response.getClass(), IpApiResponse.class);
-        assertEquals(ip, response.getQuery());
+        assertEquals(ip, response.query());
     }
 }

@@ -50,10 +50,10 @@ public class UserController {
 
     @DeleteMapping("/logout/{id}")
     public void logout(HttpServletRequest request, @PathVariable("id") Long id) {
-        String ip = request.getRemoteAddr();
+        String clientIp = request.getRemoteAddr();
         String userAgent = request.getHeader("User-Agent");
 
-        userService.logout(new UserLogOutDto(id, ip, userAgent));
+        userService.logout(new UserLogOutDto(id, clientIp, userAgent));
         sessionService.removeSessionById(request, id);
     }
 
@@ -88,19 +88,19 @@ public class UserController {
     public void deleteUser(HttpServletRequest request, @PathVariable("id") Long id) {
         validateSession(request);
 
-        String ip = request.getRemoteAddr();
+        String clientIp = request.getRemoteAddr();
         String userAgent = request.getHeader("User-Agent");
-        log.info("user try to delete id={}, ip={}, user-agent={}", id,ip,userAgent);
+        log.info("user try to delete id={}, clientIp={}, user-agent={}", id, clientIp,userAgent);
 
-        userService.deleteById(new UserDeleteDto(id, ip, userAgent));
+        userService.deleteById(new UserDeleteDto(id, clientIp, userAgent));
     }
 
     private void validateSession(HttpServletRequest request) {
         if (Objects.isNull(sessionService.getSession(request))) {
-            String ip = request.getRemoteAddr();
+            String clientIp = request.getRemoteAddr();
             String userAgent = request.getHeader("User-Agent");
 
-            log.debug("invalidate session, ip={}, user-agent={}", ip,userAgent);
+            log.debug("invalidate session, clientIp={}, user-agent={}", clientIp, userAgent);
             throw new IllegalStateException("INVALIDATE SESSION");
         }
     }
