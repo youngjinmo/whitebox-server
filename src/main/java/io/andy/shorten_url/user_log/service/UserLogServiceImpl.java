@@ -66,6 +66,6 @@ public class UserLogServiceImpl implements UserLogService {
 
     @Override
     public List<UserLog> findLatestUserLogs(int limit) {
-        return userLogRepository.findByOrderByCreatedAtDesc(PageRequest.of(0, limit)).orElseThrow(() -> new NotFoundException("NOT FOUND USER LOGS"));
+        return userLogRepository.findAllByOrderByCreatedAtDesc(PageRequest.of(0, limit)).orElseThrow(() -> new NotFoundException("NOT FOUND USER LOGS"));
     }
 }
