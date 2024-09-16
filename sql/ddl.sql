@@ -59,12 +59,11 @@ CREATE TABLE link_log
 CREATE TABLE link_counter
 (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    access_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '접속 일',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '접속 일',
     link_id INT UNSIGNED NOT NULL COMMENT '링크 ID',
-    user_id INT UNSIGNED NOT NULL COMMENT '생성 회원 ID',
-    ip_address VARCHAR(255) NOT NULL COMMENT '접속 IP',
+    ip_address VARCHAR(255) COMMENT '접속 IP',
     user_agent VARCHAR(255) COMMENT '접속 에이전트',
-    location VARCHAR(255) NOT NULL COMMENT '접속 지역',
+    location VARCHAR(255) COMMENT '접속 지역',
     referer VARCHAR(255) COMMENT 'referer 링크',
     CONSTRAINT fk_link_counter_log_link_id FOREIGN KEY (link_id) REFERENCES link (id)
 );

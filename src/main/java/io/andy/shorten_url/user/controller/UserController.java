@@ -18,7 +18,7 @@ import java.util.Objects;
 
 @Slf4j
 @RequestMapping("/user")
-@RestController
+@RestController()
 public class UserController {
     private final UserService userService;
     private final SessionService sessionService;
