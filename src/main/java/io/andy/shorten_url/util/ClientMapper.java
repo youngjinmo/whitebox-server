@@ -48,4 +48,12 @@ public class ClientMapper {
         }
         return userAgent;
     }
+
+    public static String parseLocale(HttpServletRequest request) {
+        return request.getLocale().getCountry();
+    }
+
+    public static String parseReferer(HttpServletRequest request) {
+        return request.getHeader("Referer");
+    }
 }
