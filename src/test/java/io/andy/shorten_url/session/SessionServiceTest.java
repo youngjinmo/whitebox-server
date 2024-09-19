@@ -22,10 +22,10 @@ class SessionServiceTest {
 
     @Test
     @DisplayName("세선 저장")
-    void setAttribute() {
+    void setAuthSession() {
         Long userId = 999L;
 
-        sessionService.setAttribute(request, userId);
+        sessionService.setAuthSession(request, userId);
 
         Object session = request.getSession().getAttribute(SESSION_KEY_LOGIN);
         assertNotNull(session);
@@ -34,11 +34,11 @@ class SessionServiceTest {
 
     @Test
     @DisplayName("세션에서 id 조회")
-    void getAttribute() {
+    void getAuthSession() {
         Long userId = 999L;
         request.getSession().setAttribute(SESSION_KEY_LOGIN, userId);
 
-        Object session = sessionService.getAttribute(request);
+        Object session = sessionService.getAuthSession(request);
         assertNotNull(session);
         assertEquals(userId, session);
     }
