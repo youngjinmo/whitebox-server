@@ -36,12 +36,8 @@ class CustomExceptionTest {
         assertTrue(result);
     }
 
-    private boolean getAssertErrorMessage(CustomException exception,HttpStatus status, String message) {
-        try {
-            throw exception;
-        } catch (CustomException e) {
-            return message.equals(exception.getMessage());
-        }
+    private boolean getAssertErrorMessage(CustomException exception, HttpStatus status, String message) {
+        return exception.getStatus().equals(status) && exception.getMessage().equals(message);
     }
 
 }
