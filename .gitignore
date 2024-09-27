@@ -1,6 +1,6 @@
-
 mysql_config.sh
-application-db-mysql.properties
+application-dev.properties
+application-test.properties
 
 .gradle
 build/
