@@ -6,7 +6,6 @@ import io.andy.shorten_url.link.service.LinkService;
 
 import io.andy.shorten_url.link_counter.dto.PutAccessLogDto;
 import io.andy.shorten_url.link_counter.service.LinkCounterService;
-import io.andy.shorten_url.session.SessionService;
 import io.andy.shorten_url.util.ClientMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -21,23 +20,18 @@ import java.util.List;
 @Slf4j
 @RestController
 public class LinkController {
-    @Autowired private final LinkService linkService;
-    @Autowired private final LinkCounterService linkCounterService;
-    @Autowired private final SessionService sessionService;
+    private final LinkService linkService;
+    private final LinkCounterService linkCounterService;
 
-    public LinkController(
-            LinkService linkService,
-            LinkCounterService linkCounterService,
-            SessionService sessionService
-    ) {
+    @Autowired
+    public LinkController(LinkService linkService, LinkCounterService linkCounterService) {
         this.linkService = linkService;
         this.linkCounterService = linkCounterService;
-        this.sessionService = sessionService;
     }
 
     @PostMapping("/link/create")
-    public Link createLink(@RequestParam String redirectionUrl, @RequestParam Long userId) {
-        Link link = linkService.createLink(new CreateLinkDto(userId, redirectionUrl));
+    public Link createLink(CreateLinkDto linkDto) {
+        Link link = linkService.createLink(linkDto);
         log.info("Created link: {}", link);
         return link;
     }
