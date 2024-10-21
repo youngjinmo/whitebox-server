@@ -1,5 +1,6 @@
 package io.andy.shorten_url.user.controller;
 
+import io.andy.shorten_url.exception.client.UnauthorizedException;
 import io.andy.shorten_url.session.SessionService;
 import io.andy.shorten_url.user.dto.*;
 import io.andy.shorten_url.user.service.UserService;
@@ -12,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 @Slf4j
@@ -29,7 +31,9 @@ public class UserController {
 
     @ResponseBody
     @PostMapping("/create")
-    public UserResponseDto SignUp(HttpServletRequest request, @RequestBody String username, @RequestBody String password) {
+    public UserResponseDto SignUp(HttpServletRequest request, @RequestBody Map<String, String> signupRequest) {
+        String username = signupRequest.get("username");
+        String password = signupRequest.get("password");
         String ipAddress = request.getRemoteAddr();
         String userAgent = request.getHeader("User-Agent");
 
@@ -37,12 +41,13 @@ public class UserController {
     }
 
     @PostMapping("/login")
-    public UserResponseDto Login(HttpServletRequest request, @RequestBody String username, @RequestBody String password) {
+    public UserResponseDto Login(HttpServletRequest request, @RequestBody Map<String, String> signupRequest) {
+        String username = signupRequest.get("username");
+        String password = signupRequest.get("password");
         String ip = request.getRemoteAddr();
         String userAgent = request.getHeader("User-Agent");
-        UserLoginDto loginDto = new UserLoginDto(username, ip, userAgent);
 
-        UserResponseDto user = userService.login(loginDto, password);
+        UserResponseDto user = userService.login(new UserLoginDto(username, ip, userAgent), password);
         sessionService.setSessionById(request, user.id());
 
         return user;
@@ -101,7 +106,7 @@ public class UserController {
             String userAgent = request.getHeader("User-Agent");
 
             log.debug("invalidate session, clientIp={}, user-agent={}", clientIp, userAgent);
-            throw new IllegalStateException("INVALIDATE SESSION");
+            throw new UnauthorizedException("INVALIDATE SESSION");
         }
     }
 }
