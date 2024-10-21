@@ -1,5 +1,6 @@
 package io.andy.shorten_url.user.service;
 
+import io.andy.shorten_url.exception.client.BadRequestException;
 import io.andy.shorten_url.exception.client.NotFoundException;
 import io.andy.shorten_url.exception.client.UnauthorizedException;
 import io.andy.shorten_url.user.constant.UserRole;
@@ -78,7 +79,7 @@ class UserServiceTest {
         when(userRepository.findByUsername(userSignUpDto.username())).thenReturn(Optional.of(user));
 
         // when
-        IllegalStateException exception = assertThrows(IllegalStateException.class, () -> userService.createUserByUsername(userSignUpDto, givenPassword));
+        BadRequestException exception = assertThrows(BadRequestException.class, () -> userService.createUserByUsername(userSignUpDto, givenPassword));
 
         // then
         assertEquals("DUPLICATE USERNAME", exception.getMessage());

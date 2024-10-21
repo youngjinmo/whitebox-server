@@ -17,6 +17,7 @@ import static io.andy.shorten_url.util.mail.MailPolicy.EMAIL_AUTH_SESSION_KEY;
 @Slf4j
 @Service
 public class SessionService {
+    // TODO refactor functions
 
     public Object getAuthSession(HttpServletRequest request) {
         try {
@@ -60,6 +61,29 @@ public class SessionService {
             session.setMaxInactiveInterval(EMAIL_AUTH_SESSION_ACTIVE_TIME);
         } catch (Exception e) {
             log.error("failed to set session for email auth, code={}, error message={}", secretCode, e.getMessage());
+            throw e;
+        }
+    }
+
+    public Object getPasswordAuthSession(HttpServletRequest request, String key) {
+        try {
+            HttpSession session = request.getSession();
+
+            return session.getAttribute(key);
+        } catch (Exception e) {
+            log.error("failed to get session for find password, request={}, error message={}",request, e.getMessage());
+            throw new IllegalStateException("FAILED TO GET PASSWORD AUTH SESSION");
+        }
+    }
+
+    public void setPasswordAuthSession(HttpServletRequest request, String secretCode, String key, int ttl) {
+        try {
+            HttpSession session = request.getSession();
+
+            session.setAttribute(key, secretCode);
+            session.setMaxInactiveInterval(ttl);
+        } catch (Exception e) {
+            log.error("failed to set session for find password auth, code={}, error message={}", secretCode, e.getMessage());
             throw e;
         }
     }

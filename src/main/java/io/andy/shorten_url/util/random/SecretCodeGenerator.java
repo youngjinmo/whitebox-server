@@ -1,7 +1,10 @@
 package io.andy.shorten_url.util.random;
 
+import org.springframework.stereotype.Component;
+
 import java.util.Random;
 
+@Component
 public class SecretCodeGenerator implements RandomUtility {
     private final Random random;
     private final String CODE_CHARACTERS;
