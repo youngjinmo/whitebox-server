@@ -52,7 +52,7 @@ public class UserServiceImpl implements UserService {
     public UserResponseDto createUserByUsername(UserSignUpDto userDto, String password) {
         if (isDuplicateUsername(userDto.username())) {
             log.debug("this username is already exists = {}", userDto.username());
-            throw new IllegalStateException("DUPLICATE USERNAME");
+            throw new BadRequestException("DUPLICATE USERNAME");
         }
 
         try {
@@ -268,7 +268,8 @@ public class UserServiceImpl implements UserService {
         }
     }
 
-    private boolean isDuplicateUsername(String username) {
+    @Override
+    public boolean isDuplicateUsername(String username) {
         Optional<User> user = userRepository.findByUsername(username);
         return user.isPresent();
     }
