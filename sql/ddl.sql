@@ -19,7 +19,6 @@ CREATE TABLE user_log
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '로그 생성일',
     state VARCHAR(255) NOT NULL COMMENT '로깅 시점 회원 상태',
     role VARCHAR(255) NOT NULL COMMENT '로깅 시점 역할/권한',
-    username VARCHAR(255) COMMENT '이메일',
     message VARCHAR(255) COMMENT '로그 메시지',
     pre_value VARCHAR(255) COMMENT '수정 전 값',
     post_value VARCHAR(255) COMMENT '수정 후 값',

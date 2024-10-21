@@ -27,7 +27,6 @@ public class UserLog {
     private Long id; // to be update db schema
     private Long userId;
     private LocalDateTime createdAt;
-    private String username;
     @Enumerated(EnumType.STRING)
     private UserState state;
     @Enumerated(EnumType.STRING)

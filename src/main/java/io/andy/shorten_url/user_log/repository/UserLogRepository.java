@@ -15,5 +15,5 @@ import java.util.Optional;
 public interface UserLogRepository extends JpaRepository<UserLog, Long>, CommonRepository<UserLog> {
     Optional<List<UserLog>> findByUserId(Long userId);
     Optional<List<UserLog>> findByMessage(UserLogMessage message);
-    @Profile("test") void deleteAll();
+    @Override @Profile("test") void deleteAll();
 }
