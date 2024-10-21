@@ -9,10 +9,10 @@ import io.andy.shorten_url.user.dto.UserResponseDto;
 import io.andy.shorten_url.user.dto.UserSignUpDto;
 import io.andy.shorten_url.user.entity.User;
 import io.andy.shorten_url.user.repository.UserRepository;
-import io.andy.shorten_url.userLog.dto.AccessInfoDto;
-import io.andy.shorten_url.userLog.dto.UpdateInfoDto;
-import io.andy.shorten_url.userLog.dto.UpdatePrivacyInfoDto;
-import io.andy.shorten_url.userLog.service.UserLogService;
+import io.andy.shorten_url.user_log.dto.AccessInfoDto;
+import io.andy.shorten_url.user_log.dto.UpdateInfoDto;
+import io.andy.shorten_url.user_log.dto.UpdatePrivacyInfoDto;
+import io.andy.shorten_url.user_log.service.UserLogService;
 
 import org.junit.jupiter.api.*;
 

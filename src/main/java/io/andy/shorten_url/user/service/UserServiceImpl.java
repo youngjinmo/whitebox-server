@@ -9,11 +9,11 @@ import io.andy.shorten_url.user.constant.UserState;
 import io.andy.shorten_url.user.dto.*;
 import io.andy.shorten_url.user.entity.User;
 import io.andy.shorten_url.user.repository.UserRepository;
-import io.andy.shorten_url.userLog.constant.UserLogMessage;
-import io.andy.shorten_url.userLog.dto.AccessInfoDto;
-import io.andy.shorten_url.userLog.dto.UpdateInfoDto;
-import io.andy.shorten_url.userLog.dto.UpdatePrivacyInfoDto;
-import io.andy.shorten_url.userLog.service.UserLogService;
+import io.andy.shorten_url.user_log.constant.UserLogMessage;
+import io.andy.shorten_url.user_log.dto.AccessInfoDto;
+import io.andy.shorten_url.user_log.dto.UpdateInfoDto;
+import io.andy.shorten_url.user_log.dto.UpdatePrivacyInfoDto;
+import io.andy.shorten_url.user_log.service.UserLogService;
 import io.andy.shorten_url.util.encrypt.EncodeUtil;
 
 import lombok.extern.slf4j.Slf4j;

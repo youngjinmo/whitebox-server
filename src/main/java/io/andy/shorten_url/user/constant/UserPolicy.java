@@ -1,6 +1,6 @@
 package io.andy.shorten_url.user.constant;
 
-import io.andy.shorten_url.userLog.constant.UserLogMessage;
+import io.andy.shorten_url.user_log.constant.UserLogMessage;
 
 public class UserPolicy {
     private UserPolicy() {}
