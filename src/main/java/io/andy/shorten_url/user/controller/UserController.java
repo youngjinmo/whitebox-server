@@ -27,14 +27,14 @@ import java.util.Objects;
 @RestController
 public class UserController {
     private final UserService userService;
+    // TODO Redis 도입 이후에 SessionService 의존성 제거
     private final SessionService sessionService;
     private final MailService mailService;
 
     @Autowired
-    public UserController(
-            UserService userService,
-            SessionService sessionService,
-            MailService mailService
+    public UserController(UserService userService,
+                          SessionService sessionService,
+                          MailService mailService
     ) {
         this.userService = userService;
         this.sessionService = sessionService;
@@ -88,6 +88,13 @@ public class UserController {
         return authSession.equals(secretCode);
     }
 
+    @PostMapping("/reset-password")
+    public ResponseEntity<Void> resetPassword(@RequestParam String username) {
+        // TODO 구현
+        String secretCode = userService.resetPassword(username);
+        return new ResponseEntity<>(HttpStatus.OK);
+    }
+
     @DeleteMapping("/logout/{id}")
     public void logout(HttpServletRequest request, @PathVariable("id") Long id) {
         String clientIp = ClientMapper.parseClientIp(request);
@@ -107,9 +114,14 @@ public class UserController {
        return userService.findById(id);
     }
 
-    @GetMapping("/find")
+    @GetMapping("/")
     public UserResponseDto findUserByUsername(@RequestParam String username) {
         return userService.findByUsername(username);
+    }
+
+    @GetMapping("/check-username-duplicated")
+    public boolean isUsernameDuplicated(@RequestParam String username) {
+        return userService.isDuplicateUsername(username);
     }
 
     @PatchMapping("/{id}/username")

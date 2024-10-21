@@ -16,4 +16,8 @@ public interface UserService {
     UserResponseDto updatePasswordById(Long id, String password);
     UserResponseDto updateStateById(Long id, UserState state);
     void deleteById(UserDeleteDto dto);
+    boolean isDuplicateUsername(String username);
+    String resetPassword(String username);
+    // TODO Redis 도입 이후 의존 관계 변경시 도입해야할 메소드
+    // void sendEmailAuth(String recipient);
 }

@@ -4,6 +4,7 @@ import io.andy.shorten_url.exception.client.BadRequestException;
 import io.andy.shorten_url.exception.client.NotFoundException;
 import io.andy.shorten_url.exception.client.UnauthorizedException;
 import io.andy.shorten_url.exception.server.InternalServerException;
+import io.andy.shorten_url.session.SessionService;
 import io.andy.shorten_url.user.constant.UserRole;
 import io.andy.shorten_url.user.constant.UserState;
 import io.andy.shorten_url.user.dto.*;
@@ -15,6 +16,11 @@ import io.andy.shorten_url.user_log.dto.UpdateInfoDto;
 import io.andy.shorten_url.user_log.dto.UpdatePrivacyInfoDto;
 import io.andy.shorten_url.user_log.service.UserLogService;
 import io.andy.shorten_url.util.encrypt.EncodeUtil;
+import io.andy.shorten_url.util.mail.MailService;
+import io.andy.shorten_url.util.random.RandomUtility;
+
+import jakarta.mail.MessagingException;
+import jakarta.mail.internet.MimeMessage;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -32,21 +38,30 @@ import java.util.stream.Collectors;
 @Service
 @Transactional
 public class UserServiceImpl implements UserService {
-    private final PasswordEncoder passwordEncoder;
-    private final UserLogService userLogService;
+
     private final UserRepository userRepository;
+    private final UserLogService UserLogService;
+    private final MailService mailService;
+    private final SessionService sessionService;
+    private final PasswordEncoder passwordEncoder;
+    private final RandomUtility randomUtility;
 
     @Autowired
     UserServiceImpl(
+            UserRepository userRepository,
+            UserLogService UserLogService,
+            MailService mailService,
+            SessionService sessionService,
             PasswordEncoder passwordEncoder,
-            UserLogService userLogService,
-            UserRepository userRepository
+            RandomUtility randomUtility
     ) {
-        this.passwordEncoder = passwordEncoder;
-        this.userLogService = userLogService;
         this.userRepository = userRepository;
+        this.UserLogService = UserLogService;
+        this.mailService = mailService;
+        this.sessionService = sessionService;
+        this.passwordEncoder = passwordEncoder;
+        this.randomUtility = randomUtility;
     }
-
 
     @Override
     public UserResponseDto createUserByUsername(UserSignUpDto userDto, String password) {
@@ -65,7 +80,7 @@ public class UserServiceImpl implements UserService {
 
             UserResponseDto userResponseDto = new UserResponseDto(user);
             log.debug("created user: {}", userResponseDto);
-            userLogService.putUserAccessLog(
+            UserLogService.putUserAccessLog(
                     new AccessInfoDto(
                             userResponseDto,
                             UserLogMessage.SIGNUP,
@@ -95,7 +110,7 @@ public class UserServiceImpl implements UserService {
                 // TODO save session
 
                 log.info("user logined={}", userResponseDto.id());
-                userLogService.putUserAccessLog(
+                UserLogService.putUserAccessLog(
                         new AccessInfoDto(
                                 userResponseDto,
                                 UserLogMessage.LOGIN,
@@ -120,7 +135,7 @@ public class UserServiceImpl implements UserService {
         // TODO remove session
 
         log.info("user logout, id={}", userResponseDto.id());
-        userLogService.putUserAccessLog(
+        UserLogService.putUserAccessLog(
                 new AccessInfoDto(
                         userResponseDto,
                         UserLogMessage.LOGOUT,
@@ -176,7 +191,7 @@ public class UserServiceImpl implements UserService {
 
             log.info("updated username by id={}", id);
             UserResponseDto userResponseDto = new UserResponseDto(user);
-            userLogService.putUpdateInfoLog(
+            UserLogService.putUpdateInfoLog(
                     new UpdateInfoDto(
                             userResponseDto,
                             UserLogMessage.UPDATE_USERNAME,
@@ -201,7 +216,7 @@ public class UserServiceImpl implements UserService {
 
             log.info("updated password by id={}", id);
             UserResponseDto userResponseDto = new UserResponseDto(user);
-            userLogService.putUpdateInfoLog(
+            UserLogService.putUpdateInfoLog(
                     new UpdatePrivacyInfoDto(
                             userResponseDto,
                             UserLogMessage.UPDATE_PASSWORD)
@@ -225,7 +240,7 @@ public class UserServiceImpl implements UserService {
 
             log.info("updated state into {} by id={}", state, id);
             UserResponseDto userResponseDto = new UserResponseDto(user);
-            userLogService.putUpdateInfoLog(
+            UserLogService.putUpdateInfoLog(
                     new UpdateInfoDto(
                             userResponseDto,
                             UserLogMessage.UPDATE_STATE,
@@ -255,7 +270,7 @@ public class UserServiceImpl implements UserService {
 
                 log.info("user deleted. id={}, ip={}, user-agent={}", userDto.id(), userDto.ipAddress(), userDto.userAgent());
                 UserResponseDto userResponseDto = new UserResponseDto(user);
-                userLogService.putUserAccessLog(
+                UserLogService.putUserAccessLog(
                         new AccessInfoDto(
                                 userResponseDto,
                                 UserLogMessage.DELETE_USER,
@@ -273,5 +288,27 @@ public class UserServiceImpl implements UserService {
     private boolean isDuplicateUsername(String username) {
         Optional<User> user = userRepository.findByUsername(username);
         return user.isPresent();
+    }
+
+    @Override
+    public String resetPassword(String username) {
+        // TODO create privacy url path
+        String secretCode = randomUtility.generate(20);
+
+        // TODO save it into session with ttl
+
+        // TODO send it into email
+        try {
+            String title = "[Shorten-url] 비밀번호 찾기 링크 전송";
+            String message = "비밀번호 찾기를 위한 링크입니다.<br>아래 링크로 접속하면 비밀번호가 초기화됩니다.";
+            MimeMessage mail = mailService.createHTMLMailMessage(title, message, username);
+            mailService.sendEmail(mail);
+        } catch (MessagingException e) {
+            log.error("failed to send email for find password, to={}", username);
+            throw new InternalServerException("FAILED TO SEND MAIL");
+        }
+
+        // TODO return secret code
+        return "";
     }
 }
