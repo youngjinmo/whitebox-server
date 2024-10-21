@@ -27,7 +27,6 @@ public class UserLog {
     private Long id; // to be update db schema
     private Long userId;
     private LocalDateTime createdAt;
-    private String username;
     @Enumerated(EnumType.STRING)
     private UserState state;
     @Enumerated(EnumType.STRING)
@@ -48,7 +47,6 @@ public class UserLog {
         this.state = userLogDto.state();
         this.role = userLogDto.role();
         this.message = userLogDto.message();
-        this.ipAddress = userLogDto.ipAddress();
         this.userAgent = userLogDto.userAgent();
         this.createdAt = LocalDateTime.now();
     }

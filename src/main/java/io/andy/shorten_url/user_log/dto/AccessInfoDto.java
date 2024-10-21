@@ -10,13 +10,11 @@ public record AccessInfoDto(
         UserState state,
         UserRole role,
         UserLogMessage message,
-        String ipAddress,
         String userAgent
 ) {
     public AccessInfoDto(
             UserResponseDto userDto,
             UserLogMessage message,
-            String ipAddress,
             String userAgent
     ) {
         this(
@@ -24,7 +22,6 @@ public record AccessInfoDto(
                 userDto.state(),
                 userDto.role(),
                 message,
-                ipAddress,
                 userAgent
         );
     }
