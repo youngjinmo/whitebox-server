@@ -1,12 +1,15 @@
 package io.andy.shorten_url.util;
 
 import io.andy.shorten_url.exception.server.ObjectUtilException;
-import org.slf4j.LoggerFactory;
+
+import lombok.extern.slf4j.Slf4j;
+
 import java.lang.reflect.Field;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
+@Slf4j
 public class ObjectUtil {
     public static <T> T fieldFilter(T target, String... fields) {
         try {
@@ -20,7 +23,7 @@ public class ObjectUtil {
             }
             return object;
         } catch (Exception e) {
-            LoggerFactory.getLogger(ObjectUtil.class).error("failed to filter field of {}.class. caused by {}", target, e.getMessage());
+            log.error("failed to filter field of {}.class. caused by {}", target, e.getMessage());
             throw new ObjectUtilException("FAILED TO FIELD FILTER");
         }
     }
