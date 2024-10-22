@@ -13,11 +13,12 @@ class IpLocationUtilsTest {
     @DisplayName("ip-api get 테스트")
     public void ipApiTest() throws InternalServerException {
         String ip = "1.1.1.1";
-        IpLocationUtils ipLocationUtils = new IpLocationUtils(ExternalApiHostUrl.IP_API);
+        IpLocationUtils ipLocationUtils = new IpLocationUtils();
         IpApiResponse response = ipLocationUtils.getLocationByIp(ip);
 
         assertNotNull(response);
         assertEquals(response.getClass(), IpApiResponse.class);
-        assertEquals(ip, response.query());
+        assertEquals("success", response.getStatus());
+        assertEquals(ip, response.getQuery());
     }
 }
