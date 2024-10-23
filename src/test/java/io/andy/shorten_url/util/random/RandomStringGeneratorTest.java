@@ -6,8 +6,8 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class RandomStringTest {
-    private final RandomUtility randomUtil = new RandomURL();
+class RandomStringGeneratorTest {
+    private final RandomUtility randomUtil = new RandomStringGenerator();
 
     @RepeatedTest(10)
     @DisplayName("get random string")

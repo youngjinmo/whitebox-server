@@ -1,8 +1,11 @@
 package io.andy.shorten_url.util.random;
 
+import org.springframework.stereotype.Component;
+
 import java.util.Random;
 
-public class RandomURL implements RandomUtility {
+@Component
+public class RandomStringGenerator implements RandomUtility {
 
     private final String LowerCase = "abcdefghijklmnopqrstuvwxyz";
     private final String UpperCase = LowerCase.toUpperCase();
