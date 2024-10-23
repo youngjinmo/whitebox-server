@@ -33,11 +33,12 @@ CREATE TABLE link
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     state VARCHAR(255) NOT NULL COMMENT '링크 상태',
     user_id INT UNSIGNED NOT NULL COMMENT '회원 ID',
-    resource VARCHAR(255) NOT NULL UNIQUE COMMENT '생성 URI path',
-    target_url VARCHAR(255) NOT NULL COMMENT '리다이렉션 url',
+    url_path VARCHAR(255) NOT NULL UNIQUE COMMENT '생성 URL path',
+    redirection_url VARCHAR(255) NOT NULL COMMENT '리다이렉션 URL',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '링크 생성일',
     updated_at DATETIME COMMENT '링크 수정일',
-    access_counter INT UNSIGNED DEFAULT 0 COMMENT '접속 수',
+    deleted_at DATETIME COMMENT '링크 삭제일',
+    access_count INT UNSIGNED DEFAULT 0 COMMENT '접속 수',
     CONSTRAINT fk_link_user_id FOREIGN KEY (user_id) REFERENCES user (id)
 );
 
@@ -48,23 +49,22 @@ CREATE TABLE link_log
     link_id INT UNSIGNED COMMENT '링크 ID',
     user_id INT UNSIGNED NOT NULL COMMENT '생성 회원 ID',
     link_state VARCHAR(255) NOT NULL COMMENT '링크 상태',
-    resource VARCHAR(255) NOT NULL COMMENT '생성 URI path',
-    target_url VARCHAR(255) NOT NULL COMMENT '리다이렉션 url',
+    url_path VARCHAR(255) NOT NULL COMMENT '생성 URL path',
+    redirection_url VARCHAR(255) NOT NULL COMMENT '리다이렉션 URL',
     message VARCHAR(255) COMMENT '로그 메시지',
     pre_value VARCHAR(255) COMMENT '수정 전 값',
     post_value VARCHAR(255) COMMENT '수정 후 값',
     CONSTRAINT fk_link_log_link_id FOREIGN KEY (link_id) REFERENCES link (id)
 );
 
-CREATE TABLE link_counter
+CREATE TABLE link_analytics
 (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    access_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '접속 일',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '접속 일',
     link_id INT UNSIGNED NOT NULL COMMENT '링크 ID',
-    user_id INT UNSIGNED NOT NULL COMMENT '생성 회원 ID',
-    ip_address VARCHAR(255) NOT NULL COMMENT '접속 IP',
+    ip_address VARCHAR(255) COMMENT '접속 IP',
     user_agent VARCHAR(255) COMMENT '접속 에이전트',
-    location VARCHAR(255) NOT NULL COMMENT '접속 지역',
+    location VARCHAR(255) COMMENT '접속 지역',
     referer VARCHAR(255) COMMENT 'referer 링크',
-    CONSTRAINT fk_link_counter_log_link_id FOREIGN KEY (link_id) REFERENCES link (id)
+    CONSTRAINT fk_link_analytics_link_id FOREIGN KEY (link_id) REFERENCES link (id)
 );
