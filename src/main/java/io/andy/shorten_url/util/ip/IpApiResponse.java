@@ -1,12 +1,9 @@
 package io.andy.shorten_url.util.ip;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
+@Value
+@Builder
 public class IpApiResponse {
     // https://ip-api.com/docs/api:json
     private String status;
