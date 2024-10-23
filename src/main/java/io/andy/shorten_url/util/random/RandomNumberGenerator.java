@@ -4,7 +4,7 @@ import java.util.Random;
 
 public class RandomNumberGenerator implements RandomUtility {
 
-    Random random = new Random();
+    private final Random random = new Random();
 
     @Override
     public String generate(int length) {
