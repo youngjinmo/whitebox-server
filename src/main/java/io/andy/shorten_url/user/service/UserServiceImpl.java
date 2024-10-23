@@ -197,6 +197,7 @@ public class UserServiceImpl implements UserService {
             User user = originUser.get();
 
             user.setPassword(passwordEncoder.encode(password));
+            user.setUpdatedAt(LocalDateTime.now());
 
             log.info("updated password by id={}", id);
             UserResponseDto userResponseDto = new UserResponseDto(user);
@@ -245,6 +246,7 @@ public class UserServiceImpl implements UserService {
                 User user = originUser.get();
                 user.setState(UserState.DELETED);
                 user.setDeletedAt(LocalDateTime.now());
+
                 // soft delete
                 user.setUsername(EncodeUtil.encrypt(user.getUsername()));
                 user.setPassword(EncodeUtil.encrypt(user.getPassword()));
@@ -273,4 +275,3 @@ public class UserServiceImpl implements UserService {
         return user.isPresent();
     }
 }
-

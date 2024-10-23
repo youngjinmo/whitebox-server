@@ -6,7 +6,6 @@ import io.andy.shorten_url.user.constant.UserState;
 import jakarta.persistence.*;
 
 import lombok.Getter;
-import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
 
@@ -15,7 +14,6 @@ import java.time.LocalDateTime;
 @Entity
 @Getter @Setter
 @ToString(exclude = "password")
-@NoArgsConstructor
 public class User {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -34,6 +32,8 @@ public class User {
     private LocalDateTime withdrawnAt;
     private LocalDateTime deletedAt;
 
+    protected User() {}
+
     public User(String username,
                 String password,
                 UserState state,
@@ -48,10 +48,5 @@ public class User {
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
     }
 }

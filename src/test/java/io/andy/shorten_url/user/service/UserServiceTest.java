@@ -15,10 +15,11 @@ import io.andy.shorten_url.user_log.dto.UpdatePrivacyInfoDto;
 import io.andy.shorten_url.user_log.service.UserLogService;
 
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
@@ -32,16 +33,12 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ActiveProfiles("test")
+@ExtendWith(MockitoExtension.class)
 class UserServiceTest {
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private UserRepository userRepository;
     @Mock private UserLogService userLogService;
     @InjectMocks private UserServiceImpl userService;
-
-    @BeforeEach
-    void setUp() {
-        MockitoAnnotations.openMocks(this);
-    }
 
     @Test
     @DisplayName("회원가입 정상 동작 확인")
@@ -251,6 +248,7 @@ class UserServiceTest {
         // then
         assertNotNull(result);
         assertEquals(newUsername, result.username());
+        assertNotNull(result.updatedAt());
         verify(userRepository, times(1)).findByUsername(newUsername);
     }
 
@@ -287,6 +285,7 @@ class UserServiceTest {
 
         // then
         assertNotNull(result);
+        assertNotNull(result.updatedAt());
         verify(passwordEncoder, times(1)).encode(newPassword);
     }
 
