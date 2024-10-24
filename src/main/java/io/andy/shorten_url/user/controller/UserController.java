@@ -1,16 +1,20 @@
 package io.andy.shorten_url.user.controller;
 
+import io.andy.shorten_url.exception.client.ForbiddenException;
 import io.andy.shorten_url.exception.client.UnauthorizedException;
+import io.andy.shorten_url.exception.server.InternalServerException;
 import io.andy.shorten_url.session.SessionService;
 import io.andy.shorten_url.user.dto.*;
 import io.andy.shorten_url.user.service.UserService;
-
 import io.andy.shorten_url.util.ClientMapper;
+import io.andy.shorten_url.util.mail.MailService;
+
 import jakarta.servlet.http.HttpServletRequest;
 
 import lombok.extern.slf4j.Slf4j;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -23,90 +27,117 @@ import java.util.Objects;
 public class UserController {
     private final UserService userService;
     private final SessionService sessionService;
+    private final MailService mailService;
 
-    @Autowired
-    UserController(UserService userService, SessionService sessionService) {
+    public UserController(UserService userService, SessionService sessionService, MailService mailService) {
         this.userService = userService;
         this.sessionService = sessionService;
+        this.mailService = mailService;
     }
 
     @PostMapping("/create")
-    public UserResponseDto SignUp(HttpServletRequest request, @RequestBody Map<String, String> signupRequest) {
+    public ResponseEntity<UserResponseDto> SignUp(HttpServletRequest request, @RequestBody Map<String, String> signupRequest) {
         String username = signupRequest.get("username");
         String password = signupRequest.get("password");
         String ipAddress = request.getRemoteAddr();
         String userAgent = request.getHeader("User-Agent");
 
-        return userService.createUserByUsername(new UserSignUpDto(username, ipAddress, userAgent), password);
+        UserResponseDto user = userService.createUserByUsername(new UserSignUpDto(username, ipAddress, userAgent), password);
+        return new ResponseEntity<>(user, HttpStatus.CREATED);
     }
 
     @PostMapping("/login")
-    public UserResponseDto Login(HttpServletRequest request, @RequestBody Map<String, String> signupRequest) {
+    public ResponseEntity<UserResponseDto> Login(HttpServletRequest request, @RequestBody Map<String, String> signupRequest) {
         String username = signupRequest.get("username");
         String password = signupRequest.get("password");
         String ip = request.getRemoteAddr();
         String userAgent = request.getHeader("User-Agent");
 
         UserResponseDto user = userService.login(new UserLoginDto(username, ip, userAgent), password);
-        sessionService.setAttribute(request, user.id());
+        sessionService.setAuthSession(request, user.id());
 
-        return user;
+        return new ResponseEntity<>(user, HttpStatus.OK);
+    }
+
+    @PostMapping("/send-email-auth")
+    public ResponseEntity<Void> sendEmailAuth(HttpServletRequest request, @RequestBody String recipient) {
+        if (userService.isDuplicateUsername(recipient)) {
+            throw new ForbiddenException("EMAIL DUPLICATED");
+        }
+        try {
+            String secretCode = this.mailService.sendMail(recipient);
+            sessionService.setMailAuthSession(request, secretCode);
+            return new ResponseEntity<>(HttpStatus.OK);
+        } catch (Exception e) {
+            log.error("failed to sent mail = {}, error message={}", recipient, e.getMessage());
+            throw new InternalServerException("FAILED TO SENT MAIL");
+        }
+    }
+
+    @GetMapping("/verify-email-auth")
+    public ResponseEntity<Boolean> verifyEmailAuth(HttpServletRequest request, @RequestParam String secretCode) {
+        Object authSession = sessionService.getMailAuthSession(request);
+        if (Objects.isNull(authSession)) return new ResponseEntity<>(false, HttpStatus.OK);
+        return new ResponseEntity<>(authSession.equals(secretCode), HttpStatus.OK);
     }
 
     @DeleteMapping("/logout/{id}")
-    public void logout(HttpServletRequest request, @PathVariable("id") Long id) {
+    public ResponseEntity<Void> logout(HttpServletRequest request, @PathVariable("id") Long id) {
         String clientIp = ClientMapper.parseClientIp(request);
         String userAgent = ClientMapper.parseUserAgent(request);
 
         userService.logout(new UserLogOutDto(id, clientIp, userAgent));
         sessionService.invalidateSession(request, id);
+        return new ResponseEntity<>(HttpStatus.OK);
     }
 
     @GetMapping("/all")
-    public List<UserResponseDto> getAllUsers() {
-        return userService.findAllUsers();
+    public ResponseEntity<List<UserResponseDto>> getAllUsers() {
+        List<UserResponseDto> users = userService.findAllUsers();
+        return new ResponseEntity<>(users, HttpStatus.OK);
     }
 
     @GetMapping("/{id}")
-    public UserResponseDto findUserById(@PathVariable("id") Long id) {
-       return userService.findById(id);
+    public ResponseEntity<UserResponseDto> findUserById(@PathVariable("id") Long id) {
+        UserResponseDto user = userService.findById(id);
+       return new ResponseEntity<>(user, HttpStatus.OK);
     }
 
     @GetMapping("/find")
-    public UserResponseDto findUserByUsername(@RequestParam String username) {
-        return userService.findByUsername(username);
+    public ResponseEntity<UserResponseDto> findUserByUsername(@RequestParam String username) {
+        return new ResponseEntity<>(userService.findByUsername(username), HttpStatus.OK);
     }
 
     @PatchMapping("/{id}/username")
-    public UserResponseDto UpdateUsername(HttpServletRequest request, @PathVariable("id") Long id, @RequestBody String username) {
-        validateSession(request);
-        return userService.updateUsernameById(id, username);
+    public ResponseEntity<UserResponseDto> UpdateUsername(HttpServletRequest request, @PathVariable("id") Long id, @RequestBody String username) {
+        validateSession(request, id);
+        UserResponseDto user = userService.updateUsernameById(id, username);
+        return new ResponseEntity<>(user, HttpStatus.OK);
     }
 
     @PatchMapping("/{id}/password")
-    public UserResponseDto UpdatePassword(HttpServletRequest request, @PathVariable("id") Long id, @RequestBody String password) {
-        validateSession(request);
-        return userService.updatePasswordById(id, password);
+    public ResponseEntity<UserResponseDto> UpdatePassword(HttpServletRequest request, @PathVariable("id") Long id, @RequestBody String password) {
+        validateSession(request, id);
+        UserResponseDto user = userService.updatePasswordById(id, password);
+        return new ResponseEntity<>(user, HttpStatus.OK);
     }
 
     @DeleteMapping("/{id}")
-    public void deleteUser(HttpServletRequest request, @PathVariable("id") Long id) {
-        validateSession(request);
+    public ResponseEntity<Void> deleteUser(HttpServletRequest request, @PathVariable("id") Long id) {
+        validateSession(request, id);
 
         String clientIp = ClientMapper.parseClientIp(request);
         String userAgent = ClientMapper.parseUserAgent(request);
         log.info("user try to delete id={}, clientIp={}, user-agent={}", id, clientIp,userAgent);
 
         userService.deleteById(new UserDeleteDto(id, clientIp, userAgent));
+
+        return new ResponseEntity<>(HttpStatus.OK);
     }
 
-    private void validateSession(HttpServletRequest request) {
-        if (Objects.isNull(sessionService.getAttribute(request))) {
-            String clientIp = ClientMapper.parseClientIp(request);
-            String userAgent = ClientMapper.parseUserAgent(request);
-
-            log.debug("invalidate session, clientIp={}, user-agent={}", clientIp, userAgent);
-            throw new UnauthorizedException("INVALIDATE SESSION");
-        }
+    private void validateSession(HttpServletRequest request, Long id) {
+        Object authSession = sessionService.getAuthSession(request);
+        if (Objects.isNull(authSession)) throw new UnauthorizedException();
+        if (Objects.equals(authSession, id)) throw new UnauthorizedException();
     }
 }
