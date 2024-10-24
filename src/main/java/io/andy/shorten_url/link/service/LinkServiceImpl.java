@@ -11,6 +11,7 @@ import io.andy.shorten_url.link.repository.LinkRepository;
 import io.andy.shorten_url.util.encrypt.EncodeUtil;
 import io.andy.shorten_url.util.random.RandomUtility;
 
+import io.andy.shorten_url.util.validation.Validator;
 import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,8 +19,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -39,7 +38,7 @@ public class LinkServiceImpl implements LinkService {
 
     @Override
     public Link createLink(CreateLinkDto linkDto) {
-        if (isWrongUrl(linkDto.redirectionUrl())) {
+        if (!Validator.validateUrl(linkDto.redirectionUrl())) {
             throw new BadRequestException("Invalid redirection URL");
         }
 
@@ -145,15 +144,6 @@ public class LinkServiceImpl implements LinkService {
         } else {
             log.debug("공개된 링크가 아니기에 접근할 수 없습니다. link id={}, state={}", id, link.getState());
             throw new BadRequestException("FAILED TO ACCESS LINK");
-        }
-    }
-
-    private boolean isWrongUrl(String url) {
-        try {
-            new URL(url);
-            return false;
-        } catch (MalformedURLException e) {
-            return true;
         }
     }
 }
