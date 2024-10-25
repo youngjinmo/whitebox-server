@@ -271,7 +271,8 @@ public class UserServiceImpl implements UserService {
         }
     }
 
-    private boolean isDuplicateUsername(String username) {
+    @Override
+    public boolean isDuplicateUsername(String username) {
         Optional<User> user = userRepository.findByUsername(username);
         return user.isPresent();
     }

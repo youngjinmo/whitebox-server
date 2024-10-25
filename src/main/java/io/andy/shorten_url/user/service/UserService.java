@@ -16,4 +16,5 @@ public interface UserService {
     UserResponseDto updatePasswordById(Long id, String password);
     UserResponseDto updateStateById(Long id, UserState state);
     void deleteById(UserDeleteDto dto);
+    boolean isDuplicateUsername(String username);
 }
