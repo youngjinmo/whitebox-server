@@ -2,23 +2,21 @@ package io.andy.shorten_url.util.ip;
 
 import lombok.*;
 
-@Value
+// https://ip-api.com/docs/api:json
 @Builder
-public class IpApiResponse {
-    // https://ip-api.com/docs/api:json
-    private String status;
-    private String country;
-    private String countryCode;
-    private String region;
-    private String regionName;
-    private String city;
-    private String timezone;
-    private String isp;
-    private String query;
-    private String message;
-    private String zip;
-    private String lat;
-    private String lon;
-    private String org;
-    private String as;
-}
+public record IpApiResponse(
+        String query,
+        String status,
+        String country,
+        String countryCode,
+        String region,
+        String regionName,
+        String city,
+        String zip,
+        String lat,
+        String lon,
+        String timezone,
+        String isp,
+        String org,
+        String as
+) { }
