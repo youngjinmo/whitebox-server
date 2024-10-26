@@ -1,9 +1,9 @@
 package io.andy.shorten_url.util.ip;
 
-import io.andy.shorten_url.exception.server.InternalServerException;
-
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import io.andy.shorten_url.exception.server.LocationUtilException;
 import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.stereotype.Component;
@@ -26,13 +26,18 @@ public class IpLocationUtils {
                     .bodyToMono(String.class).block();
             ObjectMapper objectMapper = new ObjectMapper();
             IpApiResponse result = objectMapper.readValue(response, IpApiResponse.class);
-            if (result.getStatus().equals("fail")) {
+            if (result.status().equals("fail")) {
+                log.error("failed to get location by ip={}", ip);
                 throw new IllegalStateException("FAILED TO GET LOCATION BY IP");
             }
             return result;
+        } catch (IllegalStateException e) {
+            throw e;
+        } catch (JsonProcessingException e) {
+            throw new LocationUtilException();
         } catch (Exception e) {
             log.error("failed to get location by ip, message={}", e.getMessage());
+            throw e;
         }
-        throw new InternalServerException("SERVER ERROR");
     }
 }

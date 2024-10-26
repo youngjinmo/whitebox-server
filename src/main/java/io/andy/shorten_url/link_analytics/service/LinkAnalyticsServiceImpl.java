@@ -34,8 +34,8 @@ public class LinkAnalyticsServiceImpl implements LinkAnalyticsService {
     public void putAccessCount(Long linkId, PutAccessLogDto accessLogDto) {
         try {
             IpApiResponse externalApiResponse = ipLocationUtils.getLocationByIp(accessLogDto.getIpAddress());
-            if (externalApiResponse.getCountry() != null) {
-                accessLogDto.setLocation(externalApiResponse.getCountry());
+            if (externalApiResponse.country() != null) {
+                accessLogDto.setLocation(externalApiResponse.country());
             }
             repository.save(new LinkAnalytics(linkId, accessLogDto));
         } catch (Exception e) {
