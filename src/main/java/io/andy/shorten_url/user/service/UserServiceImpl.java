@@ -4,6 +4,7 @@ import io.andy.shorten_url.exception.client.BadRequestException;
 import io.andy.shorten_url.exception.client.NotFoundException;
 import io.andy.shorten_url.exception.client.UnauthorizedException;
 import io.andy.shorten_url.exception.server.InternalServerException;
+import io.andy.shorten_url.session.InMemorySessionService;
 import io.andy.shorten_url.user.constant.UserRole;
 import io.andy.shorten_url.user.constant.UserState;
 import io.andy.shorten_url.user.dto.*;
