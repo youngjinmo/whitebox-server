@@ -1,59 +1,58 @@
 package io.andy.shorten_url.util;
 
-import io.andy.shorten_url.exception.server.ObjectUtilException;
-import io.andy.shorten_url.user.constant.UserRole;
-import io.andy.shorten_url.user.constant.UserState;
-import io.andy.shorten_url.user.entity.User;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.util.Optional;
-
 import static org.junit.jupiter.api.Assertions.*;
 
 class ObjectUtilTest {
+    private final String username = "hello@gmail.com";
+    private final String password = "secure-password";
+    private final String address = "South Korea, Seoul";
 
     @Test
     @DisplayName("필드 하나 제외")
-    public void fieldFilter() throws ObjectUtilException {
-        User user = createUserDummy();
+    public void fieldFilter() {
+        // given
+        Temp targetClass = new Temp(username, password, address);
+        String[] excludeFields = {"password"};
 
-        User censored = ObjectUtil.fieldFilter(user, "password");
+        // when
+        Temp censored = ObjectUtil.fieldFilter(targetClass, excludeFields);
 
-        assertEquals(User.class, censored.getClass());
-        assertEquals(user.getUsername(), censored.getUsername());
+        // then
+        assertEquals(Temp.class, censored.getClass());
+        assertEquals(targetClass.getUsername(), censored.getUsername());
         assertNull(censored.getPassword());
     }
 
     @Test
     @DisplayName("배열로 제외할 필드 필터")
-    public void fieldFilters() throws ObjectUtilException {
-        User user = createUserDummy();
-
+    public void fieldFilters() {
+        // given
+        Temp targetClass = new Temp(username, password, address);
         String[] excludes = {"username", "password"};
-        User censored = ObjectUtil.fieldFilter(user, excludes);
 
-        assertEquals(User.class, censored.getClass());
+        // when
+        Temp censored = ObjectUtil.fieldFilter(targetClass, excludes);
+
+        // then
+        assertEquals(Temp.class, censored.getClass());
         assertNull(censored.getUsername());
         assertNull(censored.getPassword());
+        assertNotNull(censored.getAddress());
     }
 
-    @Test
-    @DisplayName("Optional 객체 필터 처리")
-    public void optionalFilter() throws ObjectUtilException {
-        Optional<User> user = Optional.of(createUserDummy());
-        String[] excludes = {"username", "password"};
-        User censored = ObjectUtil.fieldFilter(user, excludes);
-
-        assertEquals(User.class, censored.getClass());
-        assertNull(censored.getUsername());
-        assertNull(censored.getPassword());
-    }
-
-    private User createUserDummy() {
-        String username = "hello@gmail.com";
-        String password = "12345678";
-        return new User(username, password, UserState.NORMAL, UserRole.USER);
+    @Getter
+    @AllArgsConstructor
+    @NoArgsConstructor
+    private class Temp {
+        private String username;
+        private String password;
+        private String address;
     }
 }
