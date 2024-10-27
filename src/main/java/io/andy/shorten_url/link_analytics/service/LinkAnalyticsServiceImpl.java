@@ -1,44 +1,39 @@
 package io.andy.shorten_url.link_analytics.service;
 
+import io.andy.shorten_url.exception.server.InternalServerException;
 import io.andy.shorten_url.link_analytics.dto.PutAccessLogDto;
 import io.andy.shorten_url.link_analytics.repository.LinkAnalyticsRepository;
 import io.andy.shorten_url.link_analytics.entity.LinkAnalytics;
 import io.andy.shorten_url.util.ip.IpApiResponse;
 import io.andy.shorten_url.util.ip.IpLocationUtils;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class LinkAnalyticsServiceImpl implements LinkAnalyticsService {
-    private final LinkAnalyticsRepository repository;
+    private final LinkAnalyticsRepository linkAnalyticsRepository;
     private final IpLocationUtils ipLocationUtils;
 
-    @Autowired
-    public LinkAnalyticsServiceImpl(LinkAnalyticsRepository repository, IpLocationUtils ipLocationUtils) {
-        this.repository = repository;
-        this.ipLocationUtils = ipLocationUtils;
-    }
-
     @Override
-    @Transactional
     public void putAccessCount(Long linkId, PutAccessLogDto accessLogDto) {
         try {
             IpApiResponse externalApiResponse = ipLocationUtils.getLocationByIp(accessLogDto.getIpAddress());
-            if (externalApiResponse.country() != null) {
-                accessLogDto.setLocation(externalApiResponse.country());
+            if (Objects.isNull(externalApiResponse)) {
+                accessLogDto.setLocation("unknown");
             }
-            repository.save(new LinkAnalytics(linkId, accessLogDto));
+            linkAnalyticsRepository.save(new LinkAnalytics(linkId, accessLogDto));
         } catch (Exception e) {
             log.error("failed to get location by ip, message={}", e.getMessage());
         }
@@ -46,12 +41,12 @@ public class LinkAnalyticsServiceImpl implements LinkAnalyticsService {
 
     @Override
     public Page<LinkAnalytics> findAllAccessCounts(Pageable pageable) {
-        return repository.findAll(pageable);
+        return linkAnalyticsRepository.findAll(pageable);
     }
 
     @Override
     public Page<LinkAnalytics> findAccessCountsByLinkId(Long linkId, Pageable pageable) {
-        return repository.findByLinkId(linkId, pageable);
+        return linkAnalyticsRepository.findByLinkId(linkId, pageable);
     }
 
     @Override
@@ -67,10 +62,14 @@ public class LinkAnalyticsServiceImpl implements LinkAnalyticsService {
     }
 
     @Override
-    @Transactional
-    public void deleteAccessCountByLinkId(Long linkId) {
-        Long counts = repository.countsByLinkId(linkId);
-        repository.deleteByLinkId(linkId);
-        log.info("deleted access counts={} by linkId={}", counts, linkId);
+    public void deleteAccessCountsByLinkId(Long linkId) {
+        try {
+            Long counts = linkAnalyticsRepository.countByLinkId(linkId);
+            linkAnalyticsRepository.deleteByLinkId(linkId);
+            log.info("deleted access counts={} by linkId={}", counts, linkId);
+        } catch (Exception e) {
+            log.error("failed to delete analytics by link id={}, message={}", linkId, e.getMessage());
+            throw new InternalServerException();
+        }
     }
 }

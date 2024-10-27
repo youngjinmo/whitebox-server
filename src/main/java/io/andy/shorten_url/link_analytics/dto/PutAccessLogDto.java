@@ -1,11 +1,11 @@
 package io.andy.shorten_url.link_analytics.dto;
 
-import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 
 @Getter @Setter
-@AllArgsConstructor
+@Builder
 public class PutAccessLogDto {
     private String ipAddress;
     private String location;
