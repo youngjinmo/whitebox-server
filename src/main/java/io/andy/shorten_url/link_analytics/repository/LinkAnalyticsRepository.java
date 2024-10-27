@@ -10,7 +10,7 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface LinkAnalyticsRepository extends JpaRepository<LinkAnalytics, Long>, CommonRepository<LinkAnalytics> {
+    Long countByLinkId(Long linkId);
     Page<LinkAnalytics> findByLinkId(Long linkId, Pageable pageable);
-    Long countsByLinkId(Long linkId);
     void deleteByLinkId(Long linkId);
 }

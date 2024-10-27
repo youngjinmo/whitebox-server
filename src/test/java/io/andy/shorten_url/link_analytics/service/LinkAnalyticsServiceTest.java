@@ -44,7 +44,12 @@ class LinkAnalyticsServiceTest {
         // given
         String location = "KR";
         Link link = new Link(1L, LinkState.PUBLIC, "shorten_", "https://github.com");
-        PutAccessLogDto dto = new PutAccessLogDto("127.0.0.1", location, "mac safari", "www.google.com");
+        PutAccessLogDto dto = PutAccessLogDto.builder()
+                .ipAddress("127.0.0.1")
+                .location("KR")
+                .userAgent("mac safari")
+                .referer("www.google.com")
+                .build();
         LinkAnalytics analytics = new LinkAnalytics(link.getId(), dto);
 
         IpApiResponse apiResponse = IpApiResponse.builder()
@@ -67,7 +72,12 @@ class LinkAnalyticsServiceTest {
         // given
         Long linkId = 1L;
         LocalDateTime now = LocalDateTime.now();
-        PutAccessLogDto dto = new PutAccessLogDto("127.0.0.1", "KO", "mac safari", "www.google.com");
+        PutAccessLogDto dto = PutAccessLogDto.builder()
+                .ipAddress("127.0.0.1")
+                .location("KR")
+                .userAgent("mac safari")
+                .referer("www.google.com")
+                .build();
 
         LinkAnalytics analytic1 = new LinkAnalytics(linkId, dto);
         analytic1.setCreatedAt(now.minusDays(5));
@@ -96,9 +106,9 @@ class LinkAnalyticsServiceTest {
         Long linkId = 999L;
 
         // when
-        when(repository.countsByLinkId(linkId)).thenReturn(100L);
+        when(repository.countByLinkId(linkId)).thenReturn(10L);
         doNothing().when(repository).deleteByLinkId(linkId);
-        linkAnalyticsService.deleteAccessCountByLinkId(linkId);
+        linkAnalyticsService.deleteAccessCountsByLinkId(linkId);
 
         // then
         verify(repository, times(1)).deleteByLinkId(linkId);

@@ -11,5 +11,5 @@ public interface LinkAnalyticsService {
     Page<LinkAnalytics> findAllAccessCounts(Pageable pageable);
     Page<LinkAnalytics> findAccessCountsByLinkId(Long linkId, Pageable pageable);
     Page<LinkAnalytics> findLatestLinkCountsWithinNdays(Long linkId, int days, Pageable pageable);
-    void deleteAccessCountByLinkId(Long linkId);
+    void deleteAccessCountsByLinkId(Long linkId);
 }
