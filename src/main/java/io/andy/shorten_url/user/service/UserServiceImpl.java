@@ -30,7 +30,6 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Service
-@Transactional
 public class UserServiceImpl implements UserService {
     private final PasswordEncoder passwordEncoder;
     private final UserLogService userLogService;

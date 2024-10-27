@@ -11,9 +11,9 @@ import io.andy.shorten_url.util.ClientMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Pageable;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,16 +21,11 @@ import java.io.IOException;
 import java.util.List;
 
 @Slf4j
+@AllArgsConstructor
 @RestController
 public class LinkController {
     private final LinkService linkService;
     private final LinkAnalyticsService linkAnalyticsService;
-
-    @Autowired
-    public LinkController(LinkService linkService, LinkAnalyticsService linkAnalyticsService) {
-        this.linkService = linkService;
-        this.linkAnalyticsService = linkAnalyticsService;
-    }
 
     @PostMapping("/link/create")
     public Link createLink(@RequestBody CreateLinkDto createLinkDto) {
