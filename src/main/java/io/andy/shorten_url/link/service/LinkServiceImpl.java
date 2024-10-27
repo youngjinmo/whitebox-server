@@ -10,11 +10,11 @@ import io.andy.shorten_url.link.entity.Link;
 import io.andy.shorten_url.link.repository.LinkRepository;
 import io.andy.shorten_url.util.encrypt.EncodeUtil;
 import io.andy.shorten_url.util.random.RandomUtility;
-
 import io.andy.shorten_url.util.validation.Validator;
+
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,17 +24,11 @@ import java.util.List;
 import java.util.Optional;
 
 @Slf4j
-@Transactional
 @Service
+@AllArgsConstructor
 public class LinkServiceImpl implements LinkService {
     private final LinkRepository linkRepository;
     private final RandomUtility randomUtility;
-
-    @Autowired
-    public LinkServiceImpl(LinkRepository linkRepository, RandomUtility randomUtility) {
-        this.linkRepository = linkRepository;
-        this.randomUtility = randomUtility;
-    }
 
     @Override
     public Link createLink(CreateLinkDto linkDto) {
@@ -135,6 +129,7 @@ public class LinkServiceImpl implements LinkService {
 
     // TODO 추후 비동기 메시지 큐 도입으로 대체
     @Override
+    @Transactional
     public long increaseLinkCount(Long id) {
         Link link = findLinkById(id);
         if (link.getState() == LinkState.PUBLIC) {

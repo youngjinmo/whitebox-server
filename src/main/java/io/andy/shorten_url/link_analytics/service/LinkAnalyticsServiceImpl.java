@@ -31,6 +31,7 @@ public class LinkAnalyticsServiceImpl implements LinkAnalyticsService {
     }
 
     @Override
+    @Transactional
     public void putAccessCount(Long linkId, PutAccessLogDto accessLogDto) {
         try {
             IpApiResponse externalApiResponse = ipLocationUtils.getLocationByIp(accessLogDto.getIpAddress());
@@ -65,8 +66,8 @@ public class LinkAnalyticsServiceImpl implements LinkAnalyticsService {
         return new PageImpl<>(list, pageable, linkAnalytics.getTotalElements());
     }
 
-    @Transactional
     @Override
+    @Transactional
     public void deleteAccessCountByLinkId(Long linkId) {
         Long counts = repository.countsByLinkId(linkId);
         repository.deleteByLinkId(linkId);
