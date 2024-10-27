@@ -4,7 +4,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.Random;
 
-@Component
+@Component("RandomStringGenerator")
 public class RandomStringGenerator implements RandomUtility {
 
     private final String LowerCase = "abcdefghijklmnopqrstuvwxyz";
