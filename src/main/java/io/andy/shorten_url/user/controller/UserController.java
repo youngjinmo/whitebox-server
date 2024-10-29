@@ -26,7 +26,7 @@ import java.util.Map;
 import static io.andy.shorten_url.auth.AuthPolicy.*;
 
 @Slf4j
-@RequestMapping("/user")
+@RequestMapping("/${apiPrefix}/user")
 @RestController
 @AllArgsConstructor
 public class UserController {
