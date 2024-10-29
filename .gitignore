@@ -1,7 +1,6 @@
 mysql_config.sh
 application-dev.properties
-application-test.properties
-application-dev-email.properties
+application-local.properties
 
 .gradle
 build/

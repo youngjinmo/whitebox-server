@@ -23,8 +23,8 @@ CREATE TABLE user_log
     pre_value VARCHAR(255) COMMENT '수정 전 값',
     post_value VARCHAR(255) COMMENT '수정 후 값',
     ip_address VARCHAR(255) COMMENT 'ip',
-    user_agent VARCHAR(255) COMMENT 'user-agent',
-    CONSTRAINT fk_user_log_user_id FOREIGN KEY (user_id) REFERENCES user (id)
+    user_agent VARCHAR(255) COMMENT 'user-agent'
+    # CONSTRAINT fk_user_log_user_id FOREIGN KEY (user_id) REFERENCES user (id)
 );
 
 CREATE TABLE link
@@ -37,8 +37,8 @@ CREATE TABLE link
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '링크 생성일',
     updated_at DATETIME COMMENT '링크 수정일',
     deleted_at DATETIME COMMENT '링크 삭제일',
-    access_count INT UNSIGNED DEFAULT 0 COMMENT '접속 수',
-    CONSTRAINT fk_link_user_id FOREIGN KEY (user_id) REFERENCES user (id)
+    access_count INT UNSIGNED DEFAULT 0 COMMENT '접속 수'
+    # CONSTRAINT fk_link_user_id FOREIGN KEY (user_id) REFERENCES user (id)
 );
 
 CREATE TABLE link_log
@@ -52,8 +52,8 @@ CREATE TABLE link_log
     redirection_url VARCHAR(255) NOT NULL COMMENT '리다이렉션 URL',
     message VARCHAR(255) COMMENT '로그 메시지',
     pre_value VARCHAR(255) COMMENT '수정 전 값',
-    post_value VARCHAR(255) COMMENT '수정 후 값',
-    CONSTRAINT fk_link_log_link_id FOREIGN KEY (link_id) REFERENCES link (id)
+    post_value VARCHAR(255) COMMENT '수정 후 값'
+    # CONSTRAINT fk_link_log_link_id FOREIGN KEY (link_id) REFERENCES link (id)
 );
 
 CREATE TABLE link_analytics
@@ -64,6 +64,6 @@ CREATE TABLE link_analytics
     ip_address VARCHAR(255) COMMENT '접속 IP',
     user_agent VARCHAR(255) COMMENT '접속 에이전트',
     location VARCHAR(255) COMMENT '접속 지역',
-    referer VARCHAR(255) COMMENT 'referer 링크',
-    CONSTRAINT fk_link_analytics_link_id FOREIGN KEY (link_id) REFERENCES link (id)
+    referer VARCHAR(255) COMMENT 'referer 링크'
+    # CONSTRAINT fk_link_analytics_link_id FOREIGN KEY (link_id) REFERENCES link (id)
 );
