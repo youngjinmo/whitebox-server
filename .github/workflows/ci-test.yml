@@ -16,6 +16,23 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+
+    services:
+      mysql:
+        image: mysql:8.3.0
+        env:
+          MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
+          MYSQL_DATABASE: whitebox_test
+        options: --health-cmd="mysqladmin ping --silent" --health-interval=10s --health-timeout=5s --health-retries=3
+        ports:
+          - 3306:3306
+
+      redis:
+        image: redis:7.2.4
+        options: --health-cmd="redis-cli ping" --health-interval=10s --health-timeout=5s --health-retries=3
+        ports:
+          - 6379:6379
+
     steps:
       # checkout code
       - name: Checkout Repository
@@ -37,11 +54,30 @@ jobs:
           restore-keys: |
             gradle-${{ runner.os }}-
 
+      # Wait mysql ready
+      - name: Wait for MySQL to be ready
+        env:
+          MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
+        run: |
+          until mysqladmin ping -h"127.0.0.1" -u root -p"${MYSQL_ROOT_PASSWORD}" --silent; do
+            echo "Waiting for database connection..."
+            sleep 2
+          done
+
+      # Run MySQL schema script
+      - name: Run MySQL Schema
+        env:
+          MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
+        run: |
+          mysql -h 127.0.0.1 -uroot -p"${MYSQL_ROOT_PASSWORD}" -e "CREATE DATABASE IF NOT EXISTS whitebox_test;"
+          mysql -h 127.0.0.1 -uroot -p"${MYSQL_ROOT_PASSWORD}" whitebox_test < sql/ddl.sql
+
       # Set up Dependencies
-      - name: Build with Gradle
+      - name: Build with Gradle and Run Tests
+        env:
+          TEST_PROFILE: 'test'
+          MYSQL_USERNAME: ${{ secrets.MYSQL_USERNAME }}
+          MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
+          EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
         run: ./gradlew build --no-daemon --parallel
-
-      # Run all JUnit test classes
-      - name: Run tests
-        run: ./gradlew test --no-daemon
-
