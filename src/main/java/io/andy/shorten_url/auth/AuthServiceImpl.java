@@ -46,4 +46,9 @@ public class AuthServiceImpl implements AuthService {
             throw e;
         }
     }
+
+    @Override
+    public String generateResetPassword(int length) {
+        return randomUtility.generate(10);
+    }
 }
