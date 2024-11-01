@@ -63,12 +63,14 @@ public class UserServiceImpl implements UserService {
             UserResponseDto userResponseDto = new UserResponseDto(user);
             log.debug("created user: {}", userResponseDto);
             userLogService.putUserAccessLog(
-                    new AccessInfoDto(
-                            userResponseDto,
-                            UserLogMessage.SIGNUP,
-                            userDto.ipAddress(),
-                            userDto.userAgent()
-                    )
+                    AccessInfoDto.builder()
+                            .userId(user.getId())
+                            .role(user.getRole())
+                            .state(user.getState())
+                            .message(UserLogMessage.SIGNUP)
+                            .ipAddress(userDto.ipAddress())
+                            .userAgent(userDto.userAgent())
+                            .build()
             );
 
             return userResponseDto;
@@ -93,12 +95,14 @@ public class UserServiceImpl implements UserService {
 
                 log.info("user logined={}", userResponseDto.id());
                 userLogService.putUserAccessLog(
-                        new AccessInfoDto(
-                                userResponseDto,
-                                UserLogMessage.LOGIN,
-                                userDto.ipAddress(),
-                                userDto.userAgent()
-                        )
+                        AccessInfoDto.builder()
+                                .userId(user.getId())
+                                .role(user.getRole())
+                                .state(user.getState())
+                                .message(UserLogMessage.LOGIN)
+                                .ipAddress(userDto.ipAddress())
+                                .userAgent(userDto.userAgent())
+                                .build()
                 );
 
                 return userResponseDto;
@@ -118,12 +122,14 @@ public class UserServiceImpl implements UserService {
 
         log.info("user logout, id={}", userResponseDto.id());
         userLogService.putUserAccessLog(
-                new AccessInfoDto(
-                        userResponseDto,
-                        UserLogMessage.LOGOUT,
-                        userDto.ipAddress(),
-                        userDto.userAgent()
-                )
+                AccessInfoDto.builder()
+                        .userId(userDto.id())
+                        .state(userResponseDto.state())
+                        .role(userResponseDto.role())
+                        .message(UserLogMessage.LOGOUT)
+                        .ipAddress(userDto.ipAddress())
+                        .userAgent(userDto.userAgent())
+                        .build()
         );
     }
 
@@ -172,16 +178,18 @@ public class UserServiceImpl implements UserService {
             user.setUpdatedAt(LocalDateTime.now());
 
             log.info("updated username by id={}", id);
-            UserResponseDto userResponseDto = new UserResponseDto(user);
             userLogService.putUpdateInfoLog(
-                    new UpdateInfoDto(
-                            userResponseDto,
-                            UserLogMessage.UPDATE_USERNAME,
-                            previousUsername,
-                            username)
+                    UpdateInfoDto.builder()
+                            .userId(id)
+                            .state(user.getState())
+                            .role(user.getRole())
+                            .message(UserLogMessage.UPDATE_USERNAME)
+                            .preValue(previousUsername)
+                            .postValue(username)
+                            .build()
             );
 
-            return userResponseDto;
+            return new UserResponseDto(user);
         }
         log.debug("failed to update username by invalid id={}, username={}", id, username);
         throw new NotFoundException("FAILED TO UPDATE USERNAME BY INVALID ID");
@@ -189,22 +197,22 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public UserResponseDto updatePasswordById(Long id, String password) {
-        Optional<User> originUser = userRepository.findById(id);
-        if (originUser.isPresent()) {
-            User user = originUser.get();
+        Optional<User> userEntity = userRepository.findById(id);
+        if (userEntity.isPresent()) {
+            User user = userEntity.get();
 
             user.setPassword(passwordEncoder.encode(password));
             user.setUpdatedAt(LocalDateTime.now());
 
             log.info("updated password by id={}", id);
-            UserResponseDto userResponseDto = new UserResponseDto(user);
-            userLogService.putUpdateInfoLog(
-                    new UpdatePrivacyInfoDto(
-                            userResponseDto,
-                            UserLogMessage.UPDATE_PASSWORD)
-            );
+            userLogService.putUpdateInfoLog(UpdatePrivacyInfoDto.builder()
+                            .userId(user.getId())
+                            .role(user.getRole())
+                            .state(UserState.NORMAL)
+                            .message(UserLogMessage.UPDATE_PASSWORD)
+                    .build());
 
-            return userResponseDto;
+            return new UserResponseDto(user);
         }
         log.debug("failed to update password by invalid id={}", id);
         throw new NotFoundException("FAILED TO UPDATE PASSWORD BY INVALID ID");
@@ -212,24 +220,26 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public UserResponseDto updateStateById(Long id, UserState state) {
-        Optional<User> originUser = userRepository.findById(id);
-        if (originUser.isPresent()) {
-            User user = originUser.get();
+        Optional<User> userEntity = userRepository.findById(id);
+        if (userEntity.isPresent()) {
+            User user = userEntity.get();
             UserState previousState = user.getState();
 
-            user.setState(state); // execution update by jpa
+            user.setState(state);
             user.setUpdatedAt(LocalDateTime.now());
 
             log.info("updated state into {} by id={}", state, id);
-            UserResponseDto userResponseDto = new UserResponseDto(user);
             userLogService.putUpdateInfoLog(
-                    new UpdateInfoDto(
-                            userResponseDto,
-                            UserLogMessage.UPDATE_STATE,
-                            String.valueOf(previousState),
-                            String.valueOf(state)));
+                    UpdateInfoDto.builder()
+                            .userId(user.getId())
+                            .state(previousState)
+                            .role(user.getRole())
+                            .message(UserLogMessage.UPDATE_STATE)
+                            .preValue(previousState.toString())
+                            .postValue(state.toString())
+                            .build());
 
-            return userResponseDto;
+            return new UserResponseDto(user);
         }
         log.debug("failed to update state by invalid id={}", id);
         throw new NotFoundException("FAILED TO UPDATE STATE BY INVALID ID");
@@ -251,14 +261,15 @@ public class UserServiceImpl implements UserService {
                 // TODO if session exists, remove it.
 
                 log.info("user deleted. id={}, ip={}, user-agent={}", userDto.id(), userDto.ipAddress(), userDto.userAgent());
-                UserResponseDto userResponseDto = new UserResponseDto(user);
                 userLogService.putUserAccessLog(
-                        new AccessInfoDto(
-                                userResponseDto,
-                                UserLogMessage.DELETE_USER,
-                                userDto.ipAddress(),
-                                userDto.userAgent()
-                        )
+                        AccessInfoDto.builder()
+                                .userId(userDto.id())
+                                .role(user.getRole())
+                                .state(user.getState())
+                                .message(UserLogMessage.DELETE_USER)
+                                .ipAddress(userDto.ipAddress())
+                                .userAgent(userDto.userAgent())
+                                .build()
                 );
             } catch (Exception e) {
                 log.error("failed to delete user by id={}. error message={}", userDto.id(), e.getMessage());
