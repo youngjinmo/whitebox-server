@@ -23,7 +23,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.util.ArrayList;
@@ -39,7 +38,6 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class UserServiceTest {
     @Mock private AuthService authService;
-    @Mock private PasswordEncoder passwordEncoder;
     @Mock private UserRepository userRepository;
     @Mock private UserLogService userLogService;
     @InjectMocks private UserServiceImpl userService;
@@ -54,7 +52,7 @@ class UserServiceTest {
         User user = new User(userSignUpDto.username(), encodedPassword, UserState.NEW, UserRole.USER);
 
         when(userRepository.findByUsername(userSignUpDto.username())).thenReturn(Optional.empty());
-        when(passwordEncoder.encode(givenPassword)).thenReturn(encodedPassword);
+        when(authService.encodePassword(givenPassword)).thenReturn(encodedPassword);
         when(userRepository.save(any(User.class))).thenReturn(user);
         doNothing().when(userLogService).putUserAccessLog(any(AccessInfoDto.class));
 
@@ -64,7 +62,7 @@ class UserServiceTest {
         // then
         assertNotNull(result);
         assertEquals(user.getUsername(), result.username());
-        verify(passwordEncoder, times(1)).encode(givenPassword);
+        verify(authService, times(1)).encodePassword(givenPassword);
         verify(userRepository, times(1)).save(any(User.class));
     }
 
@@ -83,7 +81,7 @@ class UserServiceTest {
 
         // then
         assertEquals("DUPLICATE USERNAME", exception.getMessage());
-        verify(passwordEncoder, times(0)).encode(givenPassword);
+        verify(authService, times(0)).encodePassword(givenPassword);
         verify(userRepository, times(0)).save(any(User.class));
     }
 
@@ -97,7 +95,7 @@ class UserServiceTest {
         User user = new User(userLoginDto.username(), encodedPassword, UserState.NEW, UserRole.USER);
 
         when(userRepository.findByUsername(userLoginDto.username())).thenReturn(Optional.of(user));
-        when(passwordEncoder.matches(givenPassword, encodedPassword)).thenReturn(true);
+        when(authService.matchPassword(givenPassword, encodedPassword)).thenReturn(true);
         doNothing().when(userLogService).putUserAccessLog(any(AccessInfoDto.class));
 
         // when
@@ -106,7 +104,7 @@ class UserServiceTest {
         // then
         assertNotNull(result);
         assertEquals(user.getUsername(), result.username());
-        verify(passwordEncoder, times(1)).matches(givenPassword, encodedPassword);
+        verify(authService, times(1)).matchPassword(givenPassword, encodedPassword);
     }
 
     @Test
@@ -124,7 +122,7 @@ class UserServiceTest {
 
         // then
         assertEquals("INVALID USERNAME", exception.getMessage());
-        verify(passwordEncoder, times(0)).matches(givenPassword, encodedPassword);
+        verify(authService, times(0)).matchPassword(givenPassword, encodedPassword);
         verify(userLogService, times(0)).putUserAccessLog(any(AccessInfoDto.class));
     }
 
@@ -138,14 +136,14 @@ class UserServiceTest {
         User user = new User(userLoginDto.username(), encodedPassword, UserState.NEW, UserRole.USER);
 
         when(userRepository.findByUsername(userLoginDto.username())).thenReturn(Optional.of(user));
-        when(passwordEncoder.matches(givenPassword, encodedPassword)).thenReturn(false);
+        when(authService.matchPassword(givenPassword, encodedPassword)).thenReturn(false);
 
         // when
         UnauthorizedException exception = assertThrows(UnauthorizedException.class, () -> userService.login(userLoginDto, givenPassword));
 
         // then
         assertEquals("INVALID PASSWORD", exception.getMessage());
-        verify(passwordEncoder, times(1)).matches(givenPassword, encodedPassword);
+        verify(authService, times(1)).matchPassword(givenPassword, encodedPassword);
         verify(userLogService, times(0)).putUserAccessLog(any(AccessInfoDto.class));
     }
 
@@ -281,7 +279,7 @@ class UserServiceTest {
         User user = new User("test@yj.com", "password", UserState.NEW, UserRole.USER);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(passwordEncoder.encode(newPassword)).thenReturn("encoded-password");
+        when(authService.encodePassword(newPassword)).thenReturn("encoded-password");
         doNothing().when(userLogService).putUpdateInfoLog(any(UpdatePrivacyInfoDto.class));
 
         // when
@@ -290,7 +288,7 @@ class UserServiceTest {
         // then
         assertNotNull(result);
         assertNotNull(result.updatedAt());
-        verify(passwordEncoder, times(1)).encode(newPassword);
+        verify(authService, times(1)).encodePassword(newPassword);
     }
 
     @Test
