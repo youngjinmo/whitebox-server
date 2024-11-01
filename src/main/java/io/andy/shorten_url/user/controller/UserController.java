@@ -151,11 +151,16 @@ public class UserController {
     public ResponseEntity<Void> deleteUser(HttpServletRequest request, @PathVariable("id") Long id) {
         String clientIp = ClientMapper.parseClientIp(request);
         String userAgent = ClientMapper.parseUserAgent(request);
-        log.info("user try to delete id={}, clientIp={}, user-agent={}", id, clientIp,userAgent);
 
         userService.deleteById(new UserDeleteDto(id, clientIp, userAgent));
         sessionService.invalidateSession(request, LOGIN_SESSION_KEY, id);
 
         return new ResponseEntity<>(HttpStatus.OK);
+    }
+
+    @PostMapping("/{id}/reset-password")
+    public ResponseEntity<String> resetPassword(@PathVariable Long id) {
+        String newPassword = userService.resetPassword(id);
+        return new ResponseEntity<>(newPassword, HttpStatus.OK);
     }
 }

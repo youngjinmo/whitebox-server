@@ -1,5 +1,7 @@
 package io.andy.shorten_url.user.service;
 
+import io.andy.shorten_url.auth.AuthService;
+import io.andy.shorten_url.auth.SessionService;
 import io.andy.shorten_url.exception.client.BadRequestException;
 import io.andy.shorten_url.exception.client.NotFoundException;
 import io.andy.shorten_url.exception.client.UnauthorizedException;
@@ -21,25 +23,31 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static io.andy.shorten_url.auth.AuthPolicy.RESET_PASSWORD_LENGTH;
+
 @Slf4j
 @Service
 public class UserServiceImpl implements UserService {
+    private final AuthService authService;
     private final PasswordEncoder passwordEncoder;
     private final UserLogService userLogService;
     private final UserRepository userRepository;
 
     @Autowired
     UserServiceImpl(
+            AuthService authService,
             PasswordEncoder passwordEncoder,
             UserLogService userLogService,
             UserRepository userRepository
     ) {
+        this.authService = authService;
         this.passwordEncoder = passwordEncoder;
         this.userLogService = userLogService;
         this.userRepository = userRepository;
@@ -247,10 +255,10 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public void deleteById(UserDeleteDto userDto) {
-        Optional<User> originUser = userRepository.findById(userDto.id());
-        if (originUser.isPresent()) {
+        Optional<User> userEntity = userRepository.findById(userDto.id());
+        if (userEntity.isPresent()) {
             try {
-                User user = originUser.get();
+                User user = userEntity.get();
                 user.setState(UserState.DELETED);
                 user.setDeletedAt(LocalDateTime.now());
 
@@ -282,5 +290,26 @@ public class UserServiceImpl implements UserService {
     public boolean isDuplicateUsername(String username) {
         Optional<User> user = userRepository.findByUsername(username);
         return user.isPresent();
+    }
+
+    @Override
+    @Transactional
+    public String resetPassword(Long id) {
+        Optional<User> userEntity = userRepository.findById(id);
+        if (userEntity.isPresent()) {
+            User user = userEntity.get();
+            String tempPassword = authService.generateResetPassword(RESET_PASSWORD_LENGTH);
+            user.setPassword(authService.encodePassword(tempPassword));
+            log.info("success to reset password. user id={}", id);
+            userLogService.putUpdateInfoLog(UpdatePrivacyInfoDto.builder()
+                    .userId(id)
+                    .role(user.getRole())
+                    .state(user.getState())
+                    .message(UserLogMessage.UPDATE_PASSWORD)
+                    .build());
+            return tempPassword;
+        }
+        log.debug("failed to reset password by invalid id={}", id);
+        throw new NotFoundException("FAILED TO RESET PASSWORD BY DOES NOT EXIST USER");
     }
 }

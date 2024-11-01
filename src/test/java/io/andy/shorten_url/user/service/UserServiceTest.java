@@ -1,5 +1,6 @@
 package io.andy.shorten_url.user.service;
 
+import io.andy.shorten_url.auth.AuthService;
 import io.andy.shorten_url.exception.client.BadRequestException;
 import io.andy.shorten_url.exception.client.NotFoundException;
 import io.andy.shorten_url.exception.client.UnauthorizedException;
@@ -29,6 +30,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import static io.andy.shorten_url.auth.AuthPolicy.RESET_PASSWORD_LENGTH;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
@@ -36,6 +38,7 @@ import static org.mockito.Mockito.*;
 @ActiveProfiles("test")
 @ExtendWith(MockitoExtension.class)
 class UserServiceTest {
+    @Mock private AuthService authService;
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private UserRepository userRepository;
     @Mock private UserLogService userLogService;
@@ -313,5 +316,26 @@ class UserServiceTest {
     @Test
     @Disabled
     void deleteById() {
+    }
+
+    @Test
+    @DisplayName("패스워드 리셋")
+    void resetPassword() {
+        // given
+        Long userId = 1L;
+        User user = new User("test@yj.com", "password", UserState.NEW, UserRole.USER);
+        user.setId(userId);
+        String expected = "temp-password";
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(authService.generateResetPassword(RESET_PASSWORD_LENGTH)).thenReturn(expected);
+        doNothing().when(userLogService).putUpdateInfoLog(any(UpdatePrivacyInfoDto.class));
+
+        // when
+        String actual = userService.resetPassword(userId);
+
+        // then
+        assertEquals(expected, actual);
+        verify(authService, times(1)).generateResetPassword(RESET_PASSWORD_LENGTH);
     }
 }
