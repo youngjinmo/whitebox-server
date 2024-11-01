@@ -1,7 +1,6 @@
 package io.andy.shorten_url.user.service;
 
 import io.andy.shorten_url.auth.AuthService;
-import io.andy.shorten_url.auth.SessionService;
 import io.andy.shorten_url.exception.client.BadRequestException;
 import io.andy.shorten_url.exception.client.NotFoundException;
 import io.andy.shorten_url.exception.client.UnauthorizedException;
@@ -18,10 +17,9 @@ import io.andy.shorten_url.user_log.dto.UpdatePrivacyInfoDto;
 import io.andy.shorten_url.user_log.service.UserLogService;
 import io.andy.shorten_url.util.encrypt.EncodeUtil;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,24 +32,11 @@ import static io.andy.shorten_url.auth.AuthPolicy.RESET_PASSWORD_LENGTH;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
     private final AuthService authService;
-    private final PasswordEncoder passwordEncoder;
     private final UserLogService userLogService;
     private final UserRepository userRepository;
-
-    @Autowired
-    UserServiceImpl(
-            AuthService authService,
-            PasswordEncoder passwordEncoder,
-            UserLogService userLogService,
-            UserRepository userRepository
-    ) {
-        this.authService = authService;
-        this.passwordEncoder = passwordEncoder;
-        this.userLogService = userLogService;
-        this.userRepository = userRepository;
-    }
 
     @Override
     public UserResponseDto createUserByUsername(UserSignUpDto userDto, String password) {
@@ -63,7 +48,7 @@ public class UserServiceImpl implements UserService {
         try {
             User user = userRepository.save(new User(
                     userDto.username(),
-                    passwordEncoder.encode(password),
+                    authService.encodePassword(password),
                     UserState.NEW,
                     UserRole.USER
             ));
@@ -93,7 +78,7 @@ public class UserServiceImpl implements UserService {
         Optional<User> optionalUser = userRepository.findByUsername(userDto.username());
         if (optionalUser.isPresent()) {
             User user = optionalUser.get();
-            if (passwordEncoder.matches(password, user.getPassword())) {
+            if (authService.matchPassword(password, user.getPassword())) {
 
                 user.setState(UserState.NORMAL);
                 user.setLastLoginAt(LocalDateTime.now());
@@ -209,7 +194,7 @@ public class UserServiceImpl implements UserService {
         if (userEntity.isPresent()) {
             User user = userEntity.get();
 
-            user.setPassword(passwordEncoder.encode(password));
+            user.setPassword(authService.encodePassword(password));
             user.setUpdatedAt(LocalDateTime.now());
 
             log.info("updated password by id={}", id);

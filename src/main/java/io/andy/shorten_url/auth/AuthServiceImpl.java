@@ -11,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.mail.MailException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import static io.andy.shorten_url.auth.AuthPolicy.SECRET_CODE_LENGTH;
@@ -18,15 +19,28 @@ import static io.andy.shorten_url.auth.AuthPolicy.SECRET_CODE_LENGTH;
 @Slf4j
 @Service
 public class AuthServiceImpl implements AuthService {
+    private final PasswordEncoder passwordEncoder;
     private final MailService mailService;
     private final RandomUtility randomUtility;
 
     public AuthServiceImpl(
+            PasswordEncoder passwordEncoder,
             MailService mailService,
             @Qualifier("SecretCodeGenerator") RandomUtility randomUtility
     ) {
+        this.passwordEncoder = passwordEncoder;
         this.mailService = mailService;
         this.randomUtility = randomUtility;
+    }
+
+    @Override
+    public String encodePassword(String password) {
+        return passwordEncoder.encode(password);
+    }
+
+    @Override
+    public boolean matchPassword(String storedPassword, String inputPassword) {
+        return passwordEncoder.matches(storedPassword, inputPassword);
     }
 
     @Override
