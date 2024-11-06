@@ -7,7 +7,7 @@ import java.util.List;
 
 public interface UserService {
     UserResponseDto createUserByUsername(UserSignUpDto userDto, String password);
-    UserResponseDto login(UserLoginDto userDto, String password);
+    UserLoginResponseDto login(UserLoginRequestDto userDto, String password);
     void logout(UserLogOutDto userDto);
     List<UserResponseDto> findAllUsers();
     UserResponseDto findById(Long id);

@@ -19,8 +19,8 @@ class SessionServiceTest {
     @Autowired private SessionService sessionService;
 
     @AfterEach
-    void clearAfter() {
-        sessionService.clear();
+    void flushAfter() {
+        sessionService.flushByWildcard("*");
     }
 
     @Test
@@ -28,7 +28,7 @@ class SessionServiceTest {
     void setSession() {
         String key = "test:junit:1234";
         String value = "5678";
-        sessionService.set(key, value, 100);
+        sessionService.set(key, value, 100L);
 
         assertNotNull(sessionService.get(key));
         assertEquals(value, sessionService.get(key));

@@ -13,4 +13,8 @@ public final class AuthPolicy {
 
     // reset password
     public static final int RESET_PASSWORD_LENGTH = 10;
+
+    // auth token
+    public static final long ACCESS_TOKEN_EXPIRATION = 1000 * 60 * 15;       // 15 minutes
+    public static final long REFRESH_TOKEN_EXPIRATION = 1000 * 60 * 60 * 24; // 24 hours
 }

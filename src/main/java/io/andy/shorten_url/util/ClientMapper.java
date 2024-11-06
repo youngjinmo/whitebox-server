@@ -67,6 +67,10 @@ public class ClientMapper {
         return referer;
     }
 
+    public static String parseAuthorization(HttpServletRequest request) {
+        return request.getHeader("Authorization");
+    }
+
     private static String parseBrowser(String userAgent) {
         if (userAgent.contains("Chrome") || userAgent.contains("CriOS")) {
             return "chrome";

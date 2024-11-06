@@ -8,25 +8,19 @@ import io.andy.shorten_url.user_log.dto.UpdatePrivacyInfoDto;
 import io.andy.shorten_url.user_log.entity.UserLog;
 import io.andy.shorten_url.user_log.repository.UserLogRepository;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
 @Slf4j
 @Service
-@Transactional
+@RequiredArgsConstructor
 public class UserLogServiceImpl implements UserLogService {
-
-    @Autowired private final UserLogRepository userLogRepository;
-
-    public UserLogServiceImpl(UserLogRepository userLogRepository) {
-        this.userLogRepository = userLogRepository;
-    }
+    private final UserLogRepository userLogRepository;
 
     @Override
     public void putUserAccessLog(AccessInfoDto userAccessDto) {

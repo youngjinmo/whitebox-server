@@ -17,13 +17,13 @@ class ClientMapperTest {
     MockHttpServletRequest request;
 
     @BeforeEach
-    public void init() {
+    void init() {
         request = new MockHttpServletRequest();
     }
 
     @ParameterizedTest
     @DisplayName("ip주소 파싱")
-    @ValueSource(strings = {"0:0:0:0:0:0:0:1", "[\"127.0.0.1\"]"})
+    @ValueSource(strings = {"0:0:0:0:0:0:0:1", "127.0.0.1,128.0.0.1,129.0.0.1"})
     void parseClientIp(String ip) {
         request.setAttribute("X-Forwarded-For", ip);
 
@@ -51,7 +51,7 @@ class ClientMapperTest {
     @ParameterizedTest
     @DisplayName("locale 파싱")
     @CsvSource(value = {"KR, KO", "EN, US"})
-    public void parseLocale(String language, String country) {
+    void parseLocale(String language, String country) {
         request.addPreferredLocale(new Locale(language, country));
 
         String locale = ClientMapper.parseLocale(request);
@@ -62,12 +62,23 @@ class ClientMapperTest {
 
     @Test
     @DisplayName("referer 파싱")
-    public void parseReferer() {
+    void parseReferer() {
         request.addHeader("Referer", "https://www.google.com");
 
         String referer = ClientMapper.parseReferer(request);
 
         assertNotNull(referer);
         assertEquals("https://www.google.com", referer);
+    }
+
+    @Test
+    @DisplayName("인증 헤더 파싱")
+    void parseDomain() {
+        String mockToken = "access-token";
+        request.addHeader("Authorization", mockToken);
+
+        String accessToken = ClientMapper.parseAuthorization(request);
+
+        assertEquals(mockToken, accessToken);
     }
 }

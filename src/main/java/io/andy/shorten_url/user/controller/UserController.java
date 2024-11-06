@@ -49,7 +49,7 @@ public class UserController {
     }
 
     @Transactional
-    public ResponseEntity<UserResponseDto> Login(
+    public ResponseEntity<UserLoginResponseDto> Login(
             HttpServletRequest request,
             @RequestBody Map<String, String> signupRequest
     ) {
@@ -59,11 +59,8 @@ public class UserController {
         String userAgent = request.getHeader("User-Agent");
 
         try {
-            UserResponseDto user = userService.login(new UserLoginDto(username, ip, userAgent), password);
-            String sessionKey = LOGIN_SESSION_KEY.concat(":").concat(String.valueOf(user.id()));
-            sessionService.setSession(request, sessionKey, "login", LOGIN_SESSION_ACTIVE_TIME);
-
-            return new ResponseEntity<>(user, HttpStatus.OK);
+            UserLoginResponseDto result = userService.login(new UserLoginRequestDto(username, ip, userAgent), password);
+            return new ResponseEntity<>(result, HttpStatus.OK);
         } catch (UnauthorizedException e) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, e.getMessage());
         }
@@ -107,10 +104,10 @@ public class UserController {
     public ResponseEntity<Void> logout(HttpServletRequest request, @PathVariable("id") Long id) {
         String clientIp = ClientMapper.parseClientIp(request);
         String userAgent = ClientMapper.parseUserAgent(request);
+        String accessToken = ClientMapper.parseAuthorization(request);
 
         try {
-            userService.logout(new UserLogOutDto(id, clientIp, userAgent));
-            sessionService.invalidateSession(request, LOGIN_SESSION_KEY, id);
+            userService.logout(new UserLogOutDto(id, clientIp, userAgent, accessToken));
             return new ResponseEntity<>(HttpStatus.OK);
         } catch (UnauthorizedException e) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, e.getMessage());
@@ -153,7 +150,6 @@ public class UserController {
         String userAgent = ClientMapper.parseUserAgent(request);
 
         userService.deleteById(new UserDeleteDto(id, clientIp, userAgent));
-        sessionService.invalidateSession(request, LOGIN_SESSION_KEY, id);
 
         return new ResponseEntity<>(HttpStatus.OK);
     }

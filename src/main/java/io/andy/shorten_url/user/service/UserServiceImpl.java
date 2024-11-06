@@ -1,6 +1,8 @@
 package io.andy.shorten_url.user.service;
 
 import io.andy.shorten_url.auth.AuthService;
+import io.andy.shorten_url.auth.token.dto.CreateAuthTokenRequestDto;
+import io.andy.shorten_url.auth.token.dto.VerifyAuthTokenDto;
 import io.andy.shorten_url.exception.client.BadRequestException;
 import io.andy.shorten_url.exception.client.NotFoundException;
 import io.andy.shorten_url.exception.client.UnauthorizedException;
@@ -74,19 +76,24 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public UserResponseDto login(UserLoginDto userDto, String password) {
+    @Transactional
+    public UserLoginResponseDto login(UserLoginRequestDto userDto, String password) {
         Optional<User> optionalUser = userRepository.findByUsername(userDto.username());
         if (optionalUser.isPresent()) {
             User user = optionalUser.get();
             if (authService.matchPassword(password, user.getPassword())) {
 
-                user.setState(UserState.NORMAL);
+                // 로그인으로 인한 정보 변경 (상태, 최근접속일)
+                if (user.getState().equals(UserState.NEW)) {
+                    // 첫 로그인이면 상태 변경
+                    user.setState(UserState.NORMAL);
+                }
                 user.setLastLoginAt(LocalDateTime.now());
 
-                UserResponseDto userResponseDto = new UserResponseDto(user);
-                // TODO save session
+                // 액세스 토큰 발행
+                String accessToken = authService.grantAccessToken(new CreateAuthTokenRequestDto(user.getId(), userDto.userAgent()));
 
-                log.info("user logined={}", userResponseDto.id());
+                log.info("user logined={}", user.getId());
                 userLogService.putUserAccessLog(
                         AccessInfoDto.builder()
                                 .userId(user.getId())
@@ -98,7 +105,7 @@ public class UserServiceImpl implements UserService {
                                 .build()
                 );
 
-                return userResponseDto;
+                return new UserLoginResponseDto(user, accessToken);
             }
             log.debug("user failed to login by invalid password, id={}", user.getId());
             throw new UnauthorizedException("INVALID PASSWORD");
@@ -109,21 +116,35 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional
     public void logout(UserLogOutDto userDto) {
-        UserResponseDto userResponseDto = this.findById(userDto.id());
-        // TODO remove session
+        try {
+            // user id 검증
+            UserResponseDto userResponseDto = this.findById(userDto.id());
 
-        log.info("user logout, id={}", userResponseDto.id());
-        userLogService.putUserAccessLog(
-                AccessInfoDto.builder()
-                        .userId(userDto.id())
-                        .state(userResponseDto.state())
-                        .role(userResponseDto.role())
-                        .message(UserLogMessage.LOGOUT)
-                        .ipAddress(userDto.ipAddress())
-                        .userAgent(userDto.userAgent())
-                        .build()
-        );
+            // access token 검증 및 revoke token
+            authService.revokeAccessToken(
+                    new VerifyAuthTokenDto(
+                            userDto.id(),
+                            userDto.userAgent(),
+                            userDto.accessToken()
+                    )
+            );
+
+            log.info("user logout, id={}", userResponseDto.id());
+            userLogService.putUserAccessLog(
+                    AccessInfoDto.builder()
+                            .userId(userDto.id())
+                            .state(userResponseDto.state())
+                            .role(userResponseDto.role())
+                            .message(UserLogMessage.LOGOUT)
+                            .ipAddress(userDto.ipAddress())
+                            .userAgent(userDto.userAgent())
+                            .build()
+            );
+        } catch (NotFoundException e) {
+            throw new UnauthorizedException(e.getMessage());
+        }
     }
 
     @Override
@@ -157,6 +178,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional
     public UserResponseDto updateUsernameById(Long id, String username) {
         Optional<User> originUser = userRepository.findById(id);
         if (originUser.isPresent()) {
@@ -189,6 +211,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional
     public UserResponseDto updatePasswordById(Long id, String password) {
         Optional<User> userEntity = userRepository.findById(id);
         if (userEntity.isPresent()) {
@@ -212,6 +235,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional
     public UserResponseDto updateStateById(Long id, UserState state) {
         Optional<User> userEntity = userRepository.findById(id);
         if (userEntity.isPresent()) {
@@ -239,6 +263,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional
     public void deleteById(UserDeleteDto userDto) {
         Optional<User> userEntity = userRepository.findById(userDto.id());
         if (userEntity.isPresent()) {
@@ -251,11 +276,11 @@ public class UserServiceImpl implements UserService {
                 user.setUsername(EncodeUtil.encrypt(user.getUsername()));
                 user.setPassword(EncodeUtil.encrypt(user.getPassword()));
 
-                // TODO if session exists, remove it.
+                authService.revokeAllTokensByUserId(userDto.id());
 
                 log.info("user deleted. id={}, ip={}, user-agent={}", userDto.id(), userDto.ipAddress(), userDto.userAgent());
-                userLogService.putUserAccessLog(
-                        AccessInfoDto.builder()
+                userLogService.putUpdateInfoLog(
+                        UpdatePrivacyInfoDto.builder()
                                 .userId(userDto.id())
                                 .role(user.getRole())
                                 .state(user.getState())
