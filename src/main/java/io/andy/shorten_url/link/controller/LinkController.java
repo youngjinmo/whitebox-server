@@ -40,7 +40,7 @@ public class LinkController {
         return ResponseEntity.status(HttpStatus.CREATED).body(link);
     }
 
-    @GetMapping("/apiPrefix/link/all")
+    @GetMapping("/${apiPrefix}/link/all")
     public ResponseEntity<Map<String, Object>> findAllLinks(Pageable pageable) {
         List<Link> links = linkService.findAllLinks(pageable);
         Map<String, Object> response = new HashMap<>();
