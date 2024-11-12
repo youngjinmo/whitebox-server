@@ -1,6 +1,8 @@
 package io.andy.shorten_url.user.service;
 
 import io.andy.shorten_url.auth.AuthService;
+import io.andy.shorten_url.auth.token.dto.CreateTokenDto;
+import io.andy.shorten_url.auth.token.dto.TokenResponseDto;
 import io.andy.shorten_url.exception.client.BadRequestException;
 import io.andy.shorten_url.exception.client.NotFoundException;
 import io.andy.shorten_url.exception.client.UnauthorizedException;
@@ -16,30 +18,39 @@ import io.andy.shorten_url.user_log.dto.UpdateInfoDto;
 import io.andy.shorten_url.user_log.dto.UpdatePrivacyInfoDto;
 import io.andy.shorten_url.user_log.service.UserLogService;
 import io.andy.shorten_url.util.encrypt.EncodeUtil;
+import io.andy.shorten_url.util.mail.MailService;
+import io.andy.shorten_url.util.mail.dto.MailMessageDto;
+
+import jakarta.mail.MessagingException;
+import jakarta.mail.internet.MimeMessage;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import org.springframework.mail.MailException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static io.andy.shorten_url.auth.AuthPolicy.RESET_PASSWORD_LENGTH;
+import static io.andy.shorten_url.auth.AuthPolicy.*;
 
 @Slf4j
 @Service
+@Transactional
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
     private final AuthService authService;
+    private final MailService mailService;
     private final UserLogService userLogService;
     private final UserRepository userRepository;
 
     @Override
-    public UserResponseDto createUserByUsername(UserSignUpDto userDto, String password) {
+    public UserResponseDto signUpByUsername(UserSignUpDto userDto, String password) {
         if (isDuplicateUsername(userDto.username())) {
             log.debug("this username is already exists = {}", userDto.username());
             throw new BadRequestException("DUPLICATE USERNAME");
@@ -74,19 +85,24 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public UserResponseDto login(UserLoginDto userDto, String password) {
+    public UserLoginResponseDto login(UserLoginRequestDto userDto, String password) {
         Optional<User> optionalUser = userRepository.findByUsername(userDto.username());
         if (optionalUser.isPresent()) {
             User user = optionalUser.get();
             if (authService.matchPassword(password, user.getPassword())) {
 
-                user.setState(UserState.NORMAL);
+                // 로그인으로 인한 정보 변경 (상태, 최근접속일)
+                if (user.getState().equals(UserState.NEW)) {
+                    // 첫 로그인이면 상태 변경
+                    user.setState(UserState.NORMAL);
+                }
                 user.setLastLoginAt(LocalDateTime.now());
 
-                UserResponseDto userResponseDto = new UserResponseDto(user);
-                // TODO save session
+                // access token, refresh token 발행
+                CreateTokenDto createTokenDto = new CreateTokenDto(user.getId(), userDto);
+                TokenResponseDto tokenResponseDto = authService.grantAuthToken(createTokenDto);
 
-                log.info("user logined={}", userResponseDto.id());
+                log.info("user logined={}", user.getId());
                 userLogService.putUserAccessLog(
                         AccessInfoDto.builder()
                                 .userId(user.getId())
@@ -98,7 +114,7 @@ public class UserServiceImpl implements UserService {
                                 .build()
                 );
 
-                return userResponseDto;
+                return new UserLoginResponseDto(user, tokenResponseDto);
             }
             log.debug("user failed to login by invalid password, id={}", user.getId());
             throw new UnauthorizedException("INVALID PASSWORD");
@@ -110,32 +126,43 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public void logout(UserLogOutDto userDto) {
-        UserResponseDto userResponseDto = this.findById(userDto.id());
-        // TODO remove session
+        try {
+            // user id 검증
+            UserResponseDto userResponseDto = this.findById(userDto.id());
 
-        log.info("user logout, id={}", userResponseDto.id());
-        userLogService.putUserAccessLog(
-                AccessInfoDto.builder()
-                        .userId(userDto.id())
-                        .state(userResponseDto.state())
-                        .role(userResponseDto.role())
-                        .message(UserLogMessage.LOGOUT)
-                        .ipAddress(userDto.ipAddress())
-                        .userAgent(userDto.userAgent())
-                        .build()
-        );
+            // revoke token
+            authService.revokeAuthToken(userDto.id(), userDto.accessToken());
+
+            log.info("user logout, id={}", userResponseDto.id());
+            userLogService.putUserAccessLog(
+                    AccessInfoDto.builder()
+                            .userId(userDto.id())
+                            .state(userResponseDto.state())
+                            .role(userResponseDto.role())
+                            .message(UserLogMessage.LOGOUT)
+                            .ipAddress(userDto.ipAddress())
+                            .userAgent(userDto.userAgent())
+                            .build()
+            );
+        } catch (Exception e) {
+            log.error("failed to logout userId={}. error message={}", userDto.id(), e.getMessage());
+            throw new UnauthorizedException("FAILED TO LOGOUT");
+        }
     }
 
     @Override
-    public List<UserResponseDto> findAllUsers() {
+    @Transactional(readOnly = true)
+    public List<UserResponseDto> findAllUsers(UserState[] states) {
         return userRepository
                 .findAll()
                 .stream()
+                .filter(user -> Arrays.asList(states).contains(user.getState()))
                 .map(UserResponseDto::new)
                 .collect(Collectors.toList());
     }
 
     @Override
+    @Transactional(readOnly = true)
     public UserResponseDto findById(Long id) {
         Optional<User> optionalUser = userRepository.findById(id);
         if (optionalUser.isPresent()) {
@@ -146,6 +173,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public UserResponseDto findByUsername(String username) {
         Optional<User> optionalUser = userRepository.findByUsername(username);
         if (optionalUser.isPresent()) {
@@ -251,11 +279,11 @@ public class UserServiceImpl implements UserService {
                 user.setUsername(EncodeUtil.encrypt(user.getUsername()));
                 user.setPassword(EncodeUtil.encrypt(user.getPassword()));
 
-                // TODO if session exists, remove it.
+                authService.revokeAllSessionsByUserId(userDto.id());
 
                 log.info("user deleted. id={}, ip={}, user-agent={}", userDto.id(), userDto.ipAddress(), userDto.userAgent());
-                userLogService.putUserAccessLog(
-                        AccessInfoDto.builder()
+                userLogService.putUpdateInfoLog(
+                        UpdatePrivacyInfoDto.builder()
                                 .userId(userDto.id())
                                 .role(user.getRole())
                                 .state(user.getState())
@@ -272,13 +300,13 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public boolean isDuplicateUsername(String username) {
         Optional<User> user = userRepository.findByUsername(username);
         return user.isPresent();
     }
 
     @Override
-    @Transactional
     public String resetPassword(Long id) {
         Optional<User> userEntity = userRepository.findById(id);
         if (userEntity.isPresent()) {
@@ -296,5 +324,30 @@ public class UserServiceImpl implements UserService {
         }
         log.debug("failed to reset password by invalid id={}", id);
         throw new NotFoundException("FAILED TO RESET PASSWORD BY DOES NOT EXIST USER");
+    }
+
+    @Override
+    public void sendEmailAuthCode(String recipient) {
+        try {
+            // TODO generate verification code and insert it into redis
+            String verificationCode = authService.sendEmailVerificationCode(recipient);
+
+            // TODO 추후 메일 템플릿 서비스로 코드 분리
+            String subject = "[Shorten-url] 이메일 인증";
+            String body = "<h3>요청하신 인증 번호입니다.</h3><br>"+verificationCode+"<br>";
+            MailMessageDto messageDto = new MailMessageDto(recipient, subject, body);
+            MimeMessage message = mailService.createMailMessage(messageDto);
+
+            mailService.sendMail(recipient, message);
+            log.info("verification email is sent, recipient={}", recipient);
+        } catch (MessagingException | MailException e) {
+            log.error("failed to send email auth code, recipient = {}, error message = {}, stack trace = {}", recipient, e.getMessage(), e.getStackTrace());
+            throw new InternalServerException("FAILED TO SEND AUTH CODE BY EMAIL");
+        }
+    }
+
+    @Override
+    public void verifyEmail(String recipient, String verificationCode) {
+        authService.verifyEmail(recipient, verificationCode);
     }
 }

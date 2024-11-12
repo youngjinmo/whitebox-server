@@ -1,5 +1,6 @@
 package io.andy.shorten_url.util;
 
+import io.andy.shorten_url.auth.token.dto.TokenResponseDto;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -17,13 +18,13 @@ class ClientMapperTest {
     MockHttpServletRequest request;
 
     @BeforeEach
-    public void init() {
+    void init() {
         request = new MockHttpServletRequest();
     }
 
     @ParameterizedTest
     @DisplayName("ip주소 파싱")
-    @ValueSource(strings = {"0:0:0:0:0:0:0:1", "[\"127.0.0.1\"]"})
+    @ValueSource(strings = {"0:0:0:0:0:0:0:1", "127.0.0.1,128.0.0.1,129.0.0.1"})
     void parseClientIp(String ip) {
         request.setAttribute("X-Forwarded-For", ip);
 
@@ -51,7 +52,7 @@ class ClientMapperTest {
     @ParameterizedTest
     @DisplayName("locale 파싱")
     @CsvSource(value = {"KR, KO", "EN, US"})
-    public void parseLocale(String language, String country) {
+    void parseLocale(String language, String country) {
         request.addPreferredLocale(new Locale(language, country));
 
         String locale = ClientMapper.parseLocale(request);
@@ -62,12 +63,25 @@ class ClientMapperTest {
 
     @Test
     @DisplayName("referer 파싱")
-    public void parseReferer() {
+    void parseReferer() {
         request.addHeader("Referer", "https://www.google.com");
 
         String referer = ClientMapper.parseReferer(request);
 
         assertNotNull(referer);
         assertEquals("https://www.google.com", referer);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"Bearer accessToken,refreshToken,accessToken,refreshToken","wrong-token,wrong-token,,wrong-token"})
+    @DisplayName("인증 헤더 파싱")
+    void parseAuthorization(String mockAccessToken, String mockRefreshToken, String expectedAccessToken, String expectedRefreshToken) {
+        request.addHeader("Authorization", mockAccessToken);
+        request.addParameter("refresh_token", mockRefreshToken);
+
+        TokenResponseDto authTokens = ClientMapper.parseAuthToken(request);
+
+        assertEquals(expectedAccessToken, authTokens.accessToken());
+        assertEquals(expectedRefreshToken, authTokens.refreshToken());
     }
 }

@@ -1,5 +1,6 @@
 package io.andy.shorten_url.util;
 
+import io.andy.shorten_url.auth.token.dto.TokenResponseDto;
 import jakarta.servlet.http.HttpServletRequest;
 
 import lombok.extern.slf4j.Slf4j;
@@ -67,6 +68,18 @@ public class ClientMapper {
         return referer;
     }
 
+    public static TokenResponseDto parseAuthToken(HttpServletRequest request) {
+        String accessToken = parseAccessToken(request);
+        if (accessToken== null) {
+            log.warn("access token is null");
+        }
+        String refreshToken = request.getParameter("refresh_token");
+        if (refreshToken == null) {
+            log.warn("refresh token is null");
+        }
+        return new TokenResponseDto(accessToken, refreshToken);
+    }
+
     private static String parseBrowser(String userAgent) {
         if (userAgent.contains("Chrome") || userAgent.contains("CriOS")) {
             return "chrome";
@@ -99,5 +112,14 @@ public class ClientMapper {
             return  "linux";
         }
         return userAgent;
+    }
+
+    private static String parseAccessToken(HttpServletRequest request) {
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader == null || authHeader.isEmpty() || !authHeader.startsWith("Bearer")) {
+            log.warn("access token is null");
+            return null;
+        }
+        return authHeader.substring(7);
     }
 }
