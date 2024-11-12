@@ -10,12 +10,16 @@ import lombok.Builder;
 
 @Builder
 public record UpdatePrivacyInfoDto(
-        @NotNull(message = "userId must be required")
+        @NotNull(message = "userId must be required by updated privacy info")
         Long userId,
-        @NotNull(message = "state must be required")
+        @NotNull(message = "state must be required by updated privacy info")
         UserState state,
-        @NotNull(message = "role must be required")
+        @NotNull(message = "role must be required by updated privacy info")
         UserRole role,
-        @NotNull(message = "log message must be required")
-        UserLogMessage message
+        @NotNull(message = "log message must be required by updated privacy info")
+        UserLogMessage message,
+        @NotNull(message = "ip address must be required by updated privacy info")
+        String ipAddress,
+        @NotNull(message = "user agent must be required by updated privacy info")
+        String userAgent
 ) { }
