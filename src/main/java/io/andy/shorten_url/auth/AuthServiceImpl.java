@@ -4,6 +4,7 @@ import io.andy.shorten_url.auth.token.TokenService;
 import io.andy.shorten_url.auth.token.dto.TokenResponseDto;
 import io.andy.shorten_url.auth.token.dto.CreateTokenDto;
 import io.andy.shorten_url.auth.token.dto.VerifyTokenDto;
+import io.andy.shorten_url.exception.client.BadRequestException;
 import io.andy.shorten_url.exception.client.UnauthorizedException;
 import io.andy.shorten_url.exception.server.InternalServerException;
 import io.andy.shorten_url.exception.server.TokenExpiredException;
@@ -153,15 +154,28 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public String sendEmailVerificationCode(String recipient) {
+        // create session key
+        String key = createVerificationEmailKey(recipient);
+
+        // check already sent verification code
+        try {
+            Object sent = sessionService.get(key);
+            if (sent != null) {
+                throw new BadRequestException("ALREADY SENT EMAIL VERIFICATION CODE");
+            }
+        } catch (BadRequestException e) {
+            throw e;
+        }catch (Exception e) {
+            log.warn("failed to check already sent email auth verification code, recipient = {}, error message={}", recipient, e.getMessage());
+        }
+
         // generate verification code
         String verificationCode = randomUtility.generate(SECRET_CODE_LENGTH);
 
-        // create session key
-        String key = createVerificationEmailKey(verificationCode);
-
         try {
             // save session in to the session storage
-            sessionService.set(key, recipient, EMAIL_AUTH_SESSION_ACTIVE_TIME);
+            sessionService.set(key, verificationCode, EMAIL_AUTH_SESSION_ACTIVE_TIME);
+            log.debug("save email verification code into the session storage");
         } catch (Exception e) {
             log.error("failed to send email verification code, userId={}", recipient, e);
             throw new InternalServerException("FAILED TO SEND EMAIL VERIFICATION CODE");
@@ -173,15 +187,17 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public void verifyEmail(String recipient, String verificationCode) {
         // generate redis key
-        String key = createVerificationEmailKey(verificationCode);
+        String key = createVerificationEmailKey(recipient);
 
         // get redis value by key
-        String email = getVerificationEmailCodeByKey(key);
+        String code = getVerificationEmailCodeByKey(key);
 
         // verify email
-        if (!recipient.equals(email)) {
+        if (!verificationCode.equals(code)) {
             throw new UnauthorizedException("INVALID EMAIL BY VERIFIED");
         }
+        sessionService.delete(key);
+        log.info("verified email {}", recipient);
     }
 
     private String createAccessToken(CreateTokenDto createTokenDto) {
@@ -216,7 +232,7 @@ public class AuthServiceImpl implements AuthService {
         return String.format("%s:%s:*", AUTH_TOKEN_KEY_PREFIX, userId);
     }
 
-    private String createVerificationEmailKey(String verificationCode) {
-        return String.format("%s:%s", EMAIL_AUTH_SESSION_KEY_PREFIX, verificationCode);
+    private String createVerificationEmailKey(String recipient) {
+        return String.format("%s:%s", EMAIL_AUTH_SESSION_KEY_PREFIX, recipient);
     }
 }

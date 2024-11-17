@@ -4,6 +4,7 @@ import io.andy.shorten_url.auth.token.TokenService;
 import io.andy.shorten_url.auth.token.dto.TokenResponseDto;
 import io.andy.shorten_url.auth.token.dto.CreateTokenDto;
 import io.andy.shorten_url.auth.token.dto.VerifyTokenDto;
+import io.andy.shorten_url.exception.client.BadRequestException;
 import io.andy.shorten_url.exception.client.UnauthorizedException;
 import io.andy.shorten_url.exception.server.TokenExpiredException;
 import io.andy.shorten_url.util.random.RandomUtility;
@@ -170,6 +171,7 @@ class AuthServiceTest {
         // given
         String mockVerificationCode = "mock-verification-code";
 
+        when(sessionService.get(anyString())).thenReturn(null);
         when(randomUtility.generate(SECRET_CODE_LENGTH)).thenReturn(mockVerificationCode);
         doNothing().when(sessionService).set(anyString(), anyString(), anyLong());
 
@@ -186,10 +188,25 @@ class AuthServiceTest {
         String mockEmail = "test@gmail.com";
         String mockVerificationCode = "mock-verification-code";
 
-        when(sessionService.get(anyString())).thenReturn(mockEmail);
+        when(sessionService.get(anyString())).thenReturn(mockVerificationCode);
 
         // when & then
         assertDoesNotThrow(() -> authService.verifyEmail(mockEmail, mockVerificationCode));
+        verify(sessionService, times(1)).delete(anyString());
+    }
+
+    @Test
+    @DisplayName("중복으로 이메일 인증 요구시 예외(401)")
+    void throwBadRequestByMultipleRequestVerificationCode() {
+        // given
+        String mockEmail = "test@gmail.com";
+        String mockVerificationCode = "mock-verification-code";
+
+        when(sessionService.get(anyString())).thenReturn(mockVerificationCode);
+
+        // when
+        BadRequestException exception = assertThrows(BadRequestException.class, () -> authService.sendEmailVerificationCode(mockEmail));
+        assertEquals("ALREADY SENT EMAIL VERIFICATION CODE", exception.getMessage());
     }
 
     @Test
