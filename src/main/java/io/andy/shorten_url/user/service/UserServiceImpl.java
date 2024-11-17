@@ -114,7 +114,7 @@ public class UserServiceImpl implements UserService {
                                 .build()
                 );
 
-                return new UserLoginResponseDto(user, tokenResponseDto);
+                return UserLoginResponseDto.build(user, tokenResponseDto);
             }
             log.debug("user failed to login by invalid password, id={}", user.getId());
             throw new UnauthorizedException("INVALID PASSWORD");
@@ -329,12 +329,11 @@ public class UserServiceImpl implements UserService {
     @Override
     public void sendEmailAuthCode(String recipient) {
         try {
-            // TODO generate verification code and insert it into redis
             String verificationCode = authService.sendEmailVerificationCode(recipient);
 
             // TODO 추후 메일 템플릿 서비스로 코드 분리
             String subject = "[Shorten-url] 이메일 인증";
-            String body = "<h3>요청하신 인증 번호입니다.</h3><br>"+verificationCode+"<br>";
+            String body = "<h3>"+verificationCode+"</h3><br>요청하신 인증번호입니다.<br>15분 안에 입력해주시기 바랍니다.";
             MailMessageDto messageDto = new MailMessageDto(recipient, subject, body);
             MimeMessage message = mailService.createMailMessage(messageDto);
 

@@ -13,8 +13,8 @@ public record UserLoginResponseDto(
         String accessToken,
         String refreshToken
 ) {
-   public UserLoginResponseDto(User user, TokenResponseDto tokenResponseDto) {
-       this(
+   public static UserLoginResponseDto build(User user, TokenResponseDto tokenResponseDto) {
+       return new UserLoginResponseDto(
                user.getId(),
                user.getUsername(),
                user.getState(),

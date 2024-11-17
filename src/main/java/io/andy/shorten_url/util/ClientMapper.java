@@ -81,42 +81,44 @@ public class ClientMapper {
     }
 
     private static String parseBrowser(String userAgent) {
-        if (userAgent.contains("Chrome") || userAgent.contains("CriOS")) {
-            return "chrome";
-        } else if (userAgent.contains("Edge")) {
-            return "edge";
-        } else if (userAgent.contains("Whale")) {
-            return  "whale";
+        if (userAgent.contains("Edg")) {
+            return "Edge";
         } else if (userAgent.contains("Firefox")) {
-            return  "firefox";
-        } else if (userAgent.contains("AppleWebKit") || userAgent.contains("Safari")) {
-            return  "safari";
-        } else if (userAgent.contains("Opera")) {
-            return  "opera";
-        } else if (userAgent.contains("Postman")) {
-            return  "postman";
+            return  "Firefox";
+        } else if (userAgent.contains("OPR")) {
+            return  "Opera";
+        } else if (userAgent.contains("Safari")) {
+            return  "Safari";
+        } else if (userAgent.contains("Chrome") || userAgent.contains("CriOS")) {
+            return "Chrome";
+        } else if (userAgent.toLowerCase().contains("postman")) {
+            return  "";
+        } else {
+            log.debug("failed to parse browser, userAgent = {}", userAgent);
+            return "undefined";
         }
-        return userAgent;
     }
 
     private static String parseOS(String userAgent) {
         if (userAgent.contains("Windows")) {
-            return "windows";
+            return "Windows";
         } else if (userAgent.contains("Android")) {
-            return  "android";
+            return  "Android";
         } else if (userAgent.contains("iPhone") || userAgent.contains("iPad")) {
             return "ios";
-        } else if (userAgent.contains("Macintosh")) {
-            return "mac";
+        } else if (userAgent.contains("Macintosh") || userAgent.contains("Mac OS") || userAgent.contains("OS X")) {
+            return "Mac";
         } else if (userAgent.contains("Ubuntu") || userAgent.contains("Linux")) {
-            return  "linux";
+            return  "Linux";
+        } else if (userAgent.toLowerCase().contains("postman")) {
+            return  "Postman";
         }
         return userAgent;
     }
 
     private static String parseAccessToken(HttpServletRequest request) {
         String authHeader = request.getHeader("Authorization");
-        if (authHeader == null || authHeader.isEmpty() || !authHeader.startsWith("Bearer")) {
+        if (Objects.isNull(authHeader) || authHeader.isBlank() || !authHeader.startsWith("Bearer")) {
             log.warn("access token is null");
             return null;
         }

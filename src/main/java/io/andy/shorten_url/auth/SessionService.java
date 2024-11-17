@@ -25,6 +25,7 @@ public class SessionService {
         }
         try {
             redisTemplate.opsForValue().set(key, value, ttl, TimeUnit.MILLISECONDS);
+            log.info("save session, key={}, value={}, ttl={}", key, value, ttl);
         } catch (Exception e) {
             log.error("failed to set session, key={}, error message={}", key, e.getMessage());
             throw e;

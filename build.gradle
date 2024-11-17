@@ -18,6 +18,7 @@ repositories {
 }
 
 dependencies {
+	implementation group: 'io.netty', name: 'netty-resolver-dns-native-macos', version: '4.2.0.Alpha5'
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 	implementation 'org.springframework.boot:spring-boot-starter-web'

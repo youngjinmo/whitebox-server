@@ -33,14 +33,14 @@ public class LinkController {
     private final LinkService linkService;
     private final LinkAnalyticsService linkAnalyticsService;
 
-    @PostMapping("/${apiPrefix}/link/create")
+    @PostMapping("/api/link/create")
     public ResponseEntity<Link> createLink(@RequestBody CreateLinkDto createLinkDto) {
         Link link = linkService.createLink(createLinkDto);
         log.info("created link: {}", link);
         return ResponseEntity.status(HttpStatus.CREATED).body(link);
     }
 
-    @GetMapping("/${apiPrefix}/link/all")
+    @GetMapping("/api/link/all")
     public ResponseEntity<Map<String, Object>> findAllLinks(Pageable pageable) {
         List<Link> links = linkService.findAllLinks(pageable);
         Map<String, Object> response = new HashMap<>();
@@ -83,7 +83,7 @@ public class LinkController {
     }
 
     @Transactional
-    @PutMapping("/${apiPrefix}/link/update/{id}")
+    @PutMapping("/api/link/update/{id}")
     public ResponseEntity<Link> updateLink(@PathVariable Long id, @RequestBody String redirectionUrl) {
         Link link = linkService.updateRedirectionUrl(id, redirectionUrl);
         linkAnalyticsService.deleteAccessCountsByLinkId(id);
@@ -92,7 +92,7 @@ public class LinkController {
     }
 
     @Transactional
-    @DeleteMapping("/${apiPrefix}/link/{id}")
+    @DeleteMapping("/api/link/{id}")
     public ResponseEntity<Void> deleteLink(@PathVariable Long id) {
         try {
             linkAnalyticsService.deleteAccessCountsByLinkId(id);

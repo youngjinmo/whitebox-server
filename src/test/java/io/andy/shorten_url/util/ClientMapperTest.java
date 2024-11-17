@@ -1,6 +1,7 @@
 package io.andy.shorten_url.util;
 
 import io.andy.shorten_url.auth.token.dto.TokenResponseDto;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -37,8 +38,8 @@ class ClientMapperTest {
     @ParameterizedTest
     @DisplayName("user-agent 파싱")
     @CsvSource(value = {
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15, mac safari",
-            "Mozilla/5.0 (Android 13; SM-F711N; Mobile; rv:117.0) Gecko/117.0 Firefox/117.0, android firefox"
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15, Mac undefined",
+            "Mozilla/5.0 (Android 13; SM-F711N; Mobile; rv:117.0) Gecko/117.0 Firefox/117.0, Android Firefox"
     })
     void parseUserAgent(String userAgent, String expected) {
         request.addHeader("User-Agent", userAgent);

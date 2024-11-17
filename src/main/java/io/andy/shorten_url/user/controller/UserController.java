@@ -3,7 +3,6 @@ package io.andy.shorten_url.user.controller;
 import io.andy.shorten_url.auth.token.dto.TokenResponseDto;
 import io.andy.shorten_url.exception.client.ForbiddenException;
 import io.andy.shorten_url.exception.client.UnauthorizedException;
-import io.andy.shorten_url.session.InMemorySessionService;
 import io.andy.shorten_url.user.constant.UserState;
 import io.andy.shorten_url.user.dto.*;
 import io.andy.shorten_url.user.service.UserService;
@@ -16,7 +15,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
@@ -26,12 +24,11 @@ import java.util.List;
 import java.util.Map;
 
 @Slf4j
-@RequestMapping("/${apiPrefix}/user")
+@RequestMapping("/api/user")
 @RestController
 @AllArgsConstructor
 public class UserController {
     private final UserService userService;
-    private final InMemorySessionService sessionService;
 
     @PostMapping("/create")
     public ResponseEntity<UserResponseDto> SignUp(
@@ -81,10 +78,10 @@ public class UserController {
     }
 
     @GetMapping("/verify-email")
-    public ResponseEntity<Boolean> verifyEmailAuth(@RequestParam String verificationCode, @RequestParam String recipient) {
+    public ResponseEntity<String> verifyEmailAuth(@RequestParam String verificationCode, @RequestParam String recipient) {
         try {
             userService.verifyEmail(recipient, verificationCode);
-            return new ResponseEntity<>(true, HttpStatus.OK);
+            return new ResponseEntity<>("verified", HttpStatus.OK);
         } catch (Exception e) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED SESSION");
         }
@@ -111,7 +108,6 @@ public class UserController {
         return new ResponseEntity<>(users, HttpStatus.OK);
     }
 
-    @PreAuthorize("hasRole('USER')")
     @GetMapping("/{id}")
     public ResponseEntity<UserResponseDto> findUserById(
             @PathVariable("id") Long id,
