@@ -312,6 +312,21 @@ public class UserServiceImpl implements UserService {
         if (userEntity.isPresent()) {
             User user = userEntity.get();
             String tempPassword = authService.generateResetPassword(RESET_PASSWORD_LENGTH);
+
+            // TODO 추후 메일 템플릿 서비스로 코드 분리
+            try {
+                String subject = "[Shorten-url] 비밀번호 초기화";
+                String body = "비밀번호가 아래의 번호로 초기화되었습니다.<br><h3>"+tempPassword+"</h3>";
+                MailMessageDto messageDto = new MailMessageDto(user.getUsername(), subject, body);
+                MimeMessage message = mailService.createMailMessage(messageDto);
+
+                mailService.sendMail(user.getUsername(), message);
+            } catch (MessagingException | MailException e) {
+                log.error("failed to send email reset password, " +
+                        "recipient = {}, error message = {}, stack trace = {}",
+                        user.getUsername(), e.getMessage(), e.getStackTrace());
+                throw new InternalServerException("FAILED TO SEND RESET PASSWORD BY EMAIL");
+            }
             user.setPassword(authService.encodePassword(tempPassword));
             log.info("success to reset password. user id={}", id);
             userLogService.putUpdateInfoLog(UpdatePrivacyInfoDto.builder()

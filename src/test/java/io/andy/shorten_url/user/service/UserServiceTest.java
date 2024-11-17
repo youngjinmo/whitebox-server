@@ -15,6 +15,11 @@ import io.andy.shorten_url.user_log.dto.AccessInfoDto;
 import io.andy.shorten_url.user_log.dto.UpdateInfoDto;
 import io.andy.shorten_url.user_log.dto.UpdatePrivacyInfoDto;
 import io.andy.shorten_url.user_log.service.UserLogServiceImpl;
+import io.andy.shorten_url.util.mail.MailService;
+import io.andy.shorten_url.util.mail.dto.MailMessageDto;
+
+import jakarta.mail.MessagingException;
+import jakarta.mail.internet.MimeMessage;
 
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -34,6 +39,7 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class UserServiceTest {
+    @Mock private MailService mailService;
     @Mock private AuthService authService;
     @Mock private UserRepository userRepository;
     @Mock private UserLogServiceImpl userLogService;
@@ -356,7 +362,7 @@ class UserServiceTest {
 
     @Test
     @DisplayName("패스워드 리셋")
-    void resetPassword() {
+    void resetPassword() throws MessagingException {
         // given
         Long userId = 1L;
         User user = new User("test@yj.com", "password", UserState.NEW, UserRole.USER);
@@ -365,6 +371,8 @@ class UserServiceTest {
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(authService.generateResetPassword(RESET_PASSWORD_LENGTH)).thenReturn(expected);
+        when(mailService.createMailMessage(any(MailMessageDto.class))).thenReturn(mock(MimeMessage.class));
+        doNothing().when(mailService).sendMail(anyString(), any(MimeMessage.class));
         doNothing().when(userLogService).putUpdateInfoLog(any(UpdatePrivacyInfoDto.class));
 
         // when
