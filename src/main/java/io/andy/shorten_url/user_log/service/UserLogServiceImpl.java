@@ -2,8 +2,8 @@ package io.andy.shorten_url.user_log.service;
 
 import io.andy.shorten_url.exception.client.NotFoundException;
 import io.andy.shorten_url.user_log.constant.UserLogMessage;
-import io.andy.shorten_url.user_log.dto.AccessInfoDto;
-import io.andy.shorten_url.user_log.dto.UpdateInfoDto;
+import io.andy.shorten_url.user_log.dto.AccessUserInfoDto;
+import io.andy.shorten_url.user_log.dto.UpdateUserInfoDto;
 import io.andy.shorten_url.user_log.dto.UpdatePrivacyInfoDto;
 import io.andy.shorten_url.user_log.entity.UserLog;
 import io.andy.shorten_url.user_log.repository.UserLogRepository;
@@ -25,13 +25,13 @@ public class UserLogServiceImpl implements UserLogService {
     private final UserLogRepository userLogRepository;
 
     @Override
-    public void putUserAccessLog(AccessInfoDto userAccessDto) {
+    public void putUserAccessLog(AccessUserInfoDto userAccessDto) {
         userLogRepository.save(new UserLog(userAccessDto));
     }
 
     @Override
-    public void putUpdateInfoLog(UpdateInfoDto updateInfoDto) {
-        userLogRepository.save(new UserLog(updateInfoDto));
+    public void putUpdateInfoLog(UpdateUserInfoDto updateUserInfoDto) {
+        userLogRepository.save(new UserLog(updateUserInfoDto));
     }
 
     @Override

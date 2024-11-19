@@ -63,12 +63,13 @@ public class AuthServiceImpl implements AuthService {
         try {
             String accessToken = createAccessToken(createTokenDto);
             String refreshToken = createRefreshToken(createTokenDto);
-            String tokenKey = createTokenKey(createTokenDto.userId(), accessToken);
+            String tokenKey = createTokenKey(createTokenDto.getUserId(), accessToken);
 
             sessionService.set(tokenKey, refreshToken, REFRESH_TOKEN_EXPIRATION);
+
             return new TokenResponseDto(accessToken, refreshToken);
         } catch (Exception e) {
-            log.error("failed to grant auth token, userId={}, ", createTokenDto.userId(), e);
+            log.error("failed to grant auth token, userId={}, error message={}", createTokenDto.getUserId(), e.getMessage());
             throw new InternalServerException("FAILED TO GRANT AUTH TOKEN");
         }
     }
@@ -77,7 +78,7 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public TokenResponseDto verifyAuthToken(VerifyTokenDto verifyTokenDto) {
         // 토큰 키 생성
-        String tokenKey = createTokenKey(verifyTokenDto.userId(), verifyTokenDto.token());
+        String tokenKey = createTokenKey(verifyTokenDto.getUserId(), verifyTokenDto.getToken());
 
         try {
             // 액세스 토큰 검증
@@ -86,12 +87,12 @@ public class AuthServiceImpl implements AuthService {
             // redis 에서 조회 (서버에서 발급된 토큰인지 검증)
             String refreshToken = getAuthTokenByKey(tokenKey);
             if (Objects.isNull(refreshToken)) {
-                log.debug("not found access token in the session storage, userId={}", verifyTokenDto.userId());
+                log.debug("not found access token in the session storage, userId={}", verifyTokenDto.getUserId());
                 throw new UnauthorizedException();
             }
 
             // 인증 성공
-            return new TokenResponseDto(verifyTokenDto.token(), refreshToken);
+            return new TokenResponseDto(verifyTokenDto.getToken(), refreshToken);
 
         } catch (TokenExpiredException e) {
 
@@ -102,18 +103,18 @@ public class AuthServiceImpl implements AuthService {
              */
             try {
                 String refreshToken = getAuthTokenByKey(tokenKey);
-                revokeAuthToken(verifyTokenDto.userId(), refreshToken);
+                revokeAuthToken(verifyTokenDto.getUserId(), refreshToken);
             } catch (NullPointerException | UnauthorizedException ex) {
                 throw new UnauthorizedException("EXPIRED REFRESH TOKEN");
             }
 
             // 새 토큰 생성
-            CreateTokenDto createTokenDto = new CreateTokenDto(verifyTokenDto);
+            CreateTokenDto createTokenDto = CreateTokenDto.from(verifyTokenDto);
             String accessToken = createAccessToken(createTokenDto);
             String refreshToken = createRefreshToken(createTokenDto);
 
             // redis 에 새 토큰 추가
-            String newTokenKey = createTokenKey(verifyTokenDto.userId(), accessToken);
+            String newTokenKey = createTokenKey(verifyTokenDto.getUserId(), accessToken);
             sessionService.set(newTokenKey, refreshToken, REFRESH_TOKEN_EXPIRATION);
 
             return new TokenResponseDto(accessToken, refreshToken);
@@ -132,6 +133,7 @@ public class AuthServiceImpl implements AuthService {
 
         try {
             sessionService.delete(tokenKey);
+            log.info("revoked token, userId={}", userId);
         } catch (Exception e) {
             log.error("failed to revoke auth token, userId={}", userId);
             throw new InternalServerException();
@@ -147,12 +149,14 @@ public class AuthServiceImpl implements AuthService {
         try {
             String wildcardKey = createWildcardKey(userId);
             sessionService.flushByWildcard(wildcardKey);
+            log.info("revoked all sessions by userId={}", userId);
         } catch (Exception e) {
             log.error("failed to revoke tokens by userId={}, error message={}", userId, e.getMessage());
         }
     }
 
     @Override
+    @Transactional
     public String sendEmailVerificationCode(String recipient) {
         // create session key
         String key = createVerificationEmailKey(recipient);

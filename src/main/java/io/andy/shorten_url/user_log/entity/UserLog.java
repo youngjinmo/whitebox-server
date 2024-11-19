@@ -3,8 +3,8 @@ package io.andy.shorten_url.user_log.entity;
 import io.andy.shorten_url.user.constant.UserRole;
 import io.andy.shorten_url.user.constant.UserState;
 import io.andy.shorten_url.user_log.constant.UserLogMessage;
-import io.andy.shorten_url.user_log.dto.AccessInfoDto;
-import io.andy.shorten_url.user_log.dto.UpdateInfoDto;
+import io.andy.shorten_url.user_log.dto.AccessUserInfoDto;
+import io.andy.shorten_url.user_log.dto.UpdateUserInfoDto;
 import io.andy.shorten_url.user_log.dto.UpdatePrivacyInfoDto;
 
 import jakarta.persistence.Entity;
@@ -42,18 +42,18 @@ public class UserLog {
     public UserLog() {}
 
     // 사용자 접속 정보(SIGNUP/LOGIN/LOGOUT/DELETE)를 저장하는 UserLog 생성자
-    public UserLog(AccessInfoDto userLogDto) {
+    public UserLog(AccessUserInfoDto userLogDto) {
         this.userId = userLogDto.userId();
         this.state = userLogDto.state();
         this.role = userLogDto.role();
-        this.message = userLogDto.message();
+        this.message = userLogDto.logMessage();
         this.ipAddress = userLogDto.ipAddress();
         this.userAgent = userLogDto.userAgent();
         this.createdAt = LocalDateTime.now();
     }
 
     // 사용자 변경 정보(UPDATE)를 저장하는 UserLog 생성자
-    public UserLog(UpdateInfoDto userLogDto) {
+    public UserLog(UpdateUserInfoDto userLogDto) {
         this.userId = userLogDto.userId();
         this.state = userLogDto.state();
         this.role = userLogDto.role();

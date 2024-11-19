@@ -62,7 +62,6 @@ class AuthServiceTest {
     @DisplayName("Auth 토큰 발행")
     void grantAuthToken() {
         // given
-        CreateTokenDto tokenDto = new CreateTokenDto(1L, "chrome", "127.0.0.1");
         String mockAccessToken = "mock-access-token";
         String mockRefreshToken = "mock-refresh-token";
 
@@ -72,7 +71,7 @@ class AuthServiceTest {
         doNothing().when(sessionService).set(anyString(), anyString(), anyLong());
 
         // when
-        TokenResponseDto tokenResponseDto = authService.grantAuthToken(tokenDto);
+        TokenResponseDto tokenResponseDto = authService.grantAuthToken(CreateTokenDto.of(1L, "chrome", "127.0.0.1"));
 
         // then
         assertEquals(mockAccessToken, tokenResponseDto.accessToken());
@@ -86,13 +85,12 @@ class AuthServiceTest {
         // given
         String mockAccessToken = "mock-access-token";
         String mockRefreshToken = "mock-refresh-token";
-        CreateTokenDto createTokenDto = new CreateTokenDto(1L, "chrome", "127.0.0.1");
 
         doNothing().when(tokenService).verifyToken(any(VerifyTokenDto.class));
         when(sessionService.get(anyString())).thenReturn(mockRefreshToken);
 
         // when
-        TokenResponseDto result = authService.verifyAuthToken(new VerifyTokenDto(createTokenDto, mockAccessToken));
+        TokenResponseDto result = authService.verifyAuthToken(VerifyTokenDto.of(1L, "127.0.0.1", "firefox", mockAccessToken));
 
         // then
         assertEquals(mockAccessToken, result.accessToken());
@@ -106,7 +104,6 @@ class AuthServiceTest {
         // given
         String mockAccessToken = "mock-access-token";
         String mockRefreshToken = "mock-refresh-token";
-        CreateTokenDto createTokenDto = new CreateTokenDto(1L, "chrome", "127.0.0.1");
 
         doThrow(TokenExpiredException.class).when(tokenService).verifyToken(any(VerifyTokenDto.class));
         when(sessionService.get(anyString())).thenReturn(mockRefreshToken);
@@ -116,7 +113,7 @@ class AuthServiceTest {
                 .thenReturn("new-refresh-token");
 
         // when
-        TokenResponseDto result = authService.verifyAuthToken(new VerifyTokenDto(createTokenDto, mockAccessToken));
+        TokenResponseDto result = authService.verifyAuthToken(VerifyTokenDto.of(1L, "127.0.0.1", "firefox", mockAccessToken));
 
         // then
         assertNotEquals(mockAccessToken, result.accessToken());
@@ -130,26 +127,24 @@ class AuthServiceTest {
     void refreshAllTokensWithExpiredRefreshToken() {
         // given
         String mockAccessToken = "mock-access-token";
-        CreateTokenDto createTokenDto = new CreateTokenDto(1L, "chrome", "127.0.0.1");
 
         doThrow(TokenExpiredException.class).when(tokenService).verifyToken(any(VerifyTokenDto.class));
         when(sessionService.get(anyString())).thenReturn(null);
 
         // when & then
-        assertThrows(UnauthorizedException.class, () -> authService.verifyAuthToken(new VerifyTokenDto(createTokenDto, mockAccessToken)));
+        assertThrows(UnauthorizedException.class, () -> authService.verifyAuthToken(VerifyTokenDto.of(1L, "127.0.0.1", "chrome", mockAccessToken)));
     }
 
     @Test
     @DisplayName("토큰 비활성화")
     void revokeAuthToken() {
         // given
-        Long userId = 1L;
         String mockAccessToken = "mock-access-token";
 
         when(sessionService.get(anyString())).thenReturn(mockAccessToken);
 
         // when & then
-        assertDoesNotThrow(() -> authService.revokeAuthToken(userId, mockAccessToken));
+        assertDoesNotThrow(() -> authService.revokeAuthToken(1L, mockAccessToken));
         verify(sessionService, times(1)).delete(anyString());
     }
 

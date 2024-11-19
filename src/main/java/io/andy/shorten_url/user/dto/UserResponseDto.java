@@ -17,8 +17,8 @@ public record UserResponseDto(
         LocalDateTime withdrawnAt,
         LocalDateTime deletedAt
 ) {
-   public UserResponseDto(User user) {
-       this(
+   public static UserResponseDto from(User user) {
+       return new UserResponseDto(
                user.getId(),
                user.getUsername(),
                user.getState(),

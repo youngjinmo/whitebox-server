@@ -11,10 +11,6 @@ import io.andy.shorten_url.user.constant.UserState;
 import io.andy.shorten_url.user.dto.*;
 import io.andy.shorten_url.user.entity.User;
 import io.andy.shorten_url.user.repository.UserRepository;
-import io.andy.shorten_url.user_log.dto.AccessInfoDto;
-import io.andy.shorten_url.user_log.dto.UpdateInfoDto;
-import io.andy.shorten_url.user_log.dto.UpdatePrivacyInfoDto;
-import io.andy.shorten_url.user_log.service.UserLogServiceImpl;
 import io.andy.shorten_url.util.mail.MailService;
 import io.andy.shorten_url.util.mail.dto.MailMessageDto;
 
@@ -42,29 +38,28 @@ class UserServiceTest {
     @Mock private MailService mailService;
     @Mock private AuthService authService;
     @Mock private UserRepository userRepository;
-    @Mock private UserLogServiceImpl userLogService;
     @InjectMocks private UserServiceImpl userService;
 
     @Test
     @DisplayName("회원가입 정상 동작 확인")
-    void createUserByUsername() {
+    void createByEmail() {
         // given
-        UserSignUpDto userSignUpDto = new UserSignUpDto("test@yj.com", "127.0.0.1", "test-agent");
+        String username = "test@yj.com";
         String givenPassword = "given_password";
         String encodedPassword = "encoded_password";
-        User user = new User(userSignUpDto.username(), encodedPassword, UserState.NEW, UserRole.USER);
+        User mockUser = new User(username, encodedPassword, UserState.NEW, UserRole.USER);
+        mockUser.setId(1L);
 
-        when(userRepository.findByUsername(userSignUpDto.username())).thenReturn(Optional.empty());
+        when(userRepository.findByUsername(username)).thenReturn(Optional.empty());
         when(authService.encodePassword(givenPassword)).thenReturn(encodedPassword);
-        when(userRepository.save(any(User.class))).thenReturn(user);
-        doNothing().when(userLogService).putUserAccessLog(any(AccessInfoDto.class));
+        when(userRepository.save(any(User.class))).thenReturn(mockUser);
 
         // when
-        UserResponseDto result = userService.signUpByUsername(userSignUpDto, givenPassword);
+        UserResponseDto result = userService.createByEmail(CreateUserServiceDto.of(username, givenPassword));
 
         // then
         assertNotNull(result);
-        assertEquals(user.getUsername(), result.username());
+        assertEquals(mockUser.getUsername(), result.username());
         verify(authService, times(1)).encodePassword(givenPassword);
         verify(userRepository, times(1)).save(any(User.class));
     }
@@ -73,14 +68,17 @@ class UserServiceTest {
     @DisplayName("기가입된 이메일로 회원가입 시도시 예외처리")
     void throwExceptionWithDuplicatedUsername() {
         // given
-        UserSignUpDto userSignUpDto = new UserSignUpDto("test@yj.com", "127.0.0.1", "test-agent");
+        String username = "test@yj.com";
         String givenPassword = "given_password";
-        User user = new User(userSignUpDto.username(), "encoded_password", UserState.NEW, UserRole.USER);
+        User mockUser = new User(username, "encoded_password", UserState.NEW, UserRole.USER);
+        mockUser.setId(1L);
 
-        when(userRepository.findByUsername(userSignUpDto.username())).thenReturn(Optional.of(user));
+        when(userRepository.findByUsername(username)).thenReturn(Optional.of(mockUser));
 
         // when
-        BadRequestException exception = assertThrows(BadRequestException.class, () -> userService.signUpByUsername(userSignUpDto, givenPassword));
+        BadRequestException exception = assertThrows(
+                BadRequestException.class, () -> userService.createByEmail(CreateUserServiceDto.of(username, givenPassword))
+        );
 
         // then
         assertEquals("DUPLICATE USERNAME", exception.getMessage());
@@ -92,24 +90,26 @@ class UserServiceTest {
     @DisplayName("로그인 정상 동작 확인")
     void login() {
         // given
-        UserLoginRequestDto userLoginRequestDto = new UserLoginRequestDto("test@yj.com", "127.0.0.1", "test-agent");
+        String username = "test@yj.com";
         String givenPassword = "given_password";
+        String ipAddress = "127.0.0.1";
+        String userAgent = "chrome";
         String encodedPassword = "encoded_password";
-        User user = new User(userLoginRequestDto.username(), encodedPassword, UserState.NEW, UserRole.USER);
-        user.setId(1L);
+
+        User mockUser = new User(username, encodedPassword, UserState.NEW, UserRole.USER);
+        mockUser.setId(1L);
         TokenResponseDto tokenResponseDto = new TokenResponseDto("accessToken", "refreshToken");
 
-        when(userRepository.findByUsername(userLoginRequestDto.username())).thenReturn(Optional.of(user));
+        when(userRepository.findByUsername(username)).thenReturn(Optional.of(mockUser));
         when(authService.matchPassword(givenPassword, encodedPassword)).thenReturn(true);
         when(authService.grantAuthToken(any(CreateTokenDto.class))).thenReturn(tokenResponseDto);
-        doNothing().when(userLogService).putUserAccessLog(any(AccessInfoDto.class));
 
         // when
-        UserLoginResponseDto result = userService.login(userLoginRequestDto, givenPassword);
+        UserLoginResponseDto result = userService.login(UserLoginServiceDto.of(username, givenPassword, ipAddress, userAgent));
 
         // then
         assertNotNull(result);
-        assertEquals(user.getUsername(), result.username());
+        assertEquals(mockUser.getUsername(), result.username());
         verify(authService, times(1)).matchPassword(givenPassword, encodedPassword);
     }
 
@@ -117,40 +117,48 @@ class UserServiceTest {
     @DisplayName("이메일 틀렸을때 예외 확인")
     void throwExceptionWithWrongUsername() {
         // given
-        UserLoginRequestDto userLoginRequestDto = new UserLoginRequestDto("test@yj.com", "127.0.0.1", "test-agent");
+        String username = "test@yj.com";
         String givenPassword = "given_password";
+        String ipAddress = "127.0.0.1";
+        String userAgent = "chrome";
         String encodedPassword = "encoded_password";
 
-        when(userRepository.findByUsername(userLoginRequestDto.username())).thenReturn(Optional.empty());
+        when(userRepository.findByUsername(username)).thenReturn(Optional.empty());
 
         // when
-        UnauthorizedException exception = assertThrows(UnauthorizedException.class, () -> userService.login(userLoginRequestDto, givenPassword));
+        UnauthorizedException exception = assertThrows(UnauthorizedException.class, () ->
+                userService.login(UserLoginServiceDto.of(username, givenPassword, ipAddress, userAgent))
+        );
 
         // then
         assertEquals("INVALID USERNAME", exception.getMessage());
         verify(authService, times(0)).matchPassword(givenPassword, encodedPassword);
-        verify(userLogService, times(0)).putUserAccessLog(any(AccessInfoDto.class));
     }
 
     @Test
     @DisplayName("패스워드 틀렸을때 예외 확인")
     void throwExceptionWithWrongPassword() {
         // given
-        UserLoginRequestDto userLoginRequestDto = new UserLoginRequestDto("test@yj.com", "127.0.0.1", "test-agent");
+        String username = "test@yj.com";
         String givenPassword = "given_password";
         String encodedPassword = "encoded_password";
-        User user = new User(userLoginRequestDto.username(), encodedPassword, UserState.NEW, UserRole.USER);
+        String ipAddress = "127.0.0.1";
+        String userAgent = "chrome";
 
-        when(userRepository.findByUsername(userLoginRequestDto.username())).thenReturn(Optional.of(user));
+        User mockUser = new User(username, encodedPassword, UserState.NEW, UserRole.USER);
+        mockUser.setId(1L);
+
+        when(userRepository.findByUsername(username)).thenReturn(Optional.of(mockUser));
         when(authService.matchPassword(givenPassword, encodedPassword)).thenReturn(false);
 
         // when
-        UnauthorizedException exception = assertThrows(UnauthorizedException.class, () -> userService.login(userLoginRequestDto, givenPassword));
+        UnauthorizedException exception = assertThrows(UnauthorizedException.class, () ->
+                userService.login(UserLoginServiceDto.of(username, givenPassword, ipAddress, userAgent))
+        );
 
         // then
         assertEquals("INVALID PASSWORD", exception.getMessage());
         verify(authService, times(1)).matchPassword(givenPassword, encodedPassword);
-        verify(userLogService, times(0)).putUserAccessLog(any(AccessInfoDto.class));
     }
 
     @Test
@@ -158,20 +166,16 @@ class UserServiceTest {
     void logout() {
         // given
         Long userId = 1L;
-        String userAgent = "chrome";
-        String ipAddress = "127.0.0.1";
         String mockToken = "access-token";
 
         User mockUser = new User("test@yj.com", "password", UserState.NEW, UserRole.USER);
         mockUser.setId(userId);
-        UserLogOutDto logOutDto = new UserLogOutDto(userId, userAgent, ipAddress, mockToken);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
         doNothing().when(authService).revokeAuthToken(userId, mockToken);
-        doNothing().when(userLogService).putUserAccessLog(any(AccessInfoDto.class));
 
         // when
-        userService.logout(logOutDto);
+        userService.logout(UserLogoutServiceDto.of(userId, mockToken));
 
         // then
         verify(authService, times(1)).revokeAuthToken(userId, mockToken);
@@ -181,21 +185,24 @@ class UserServiceTest {
     @DisplayName("전체 회원 조회 동작 확인")
     void findAllUsers() {
         // given
-        List<User> users = new ArrayList<>();
-        for (int i = 0; i < 10; i++) {
-            users.add(new User(i+"-test@yj.com", "password", UserState.NEW, UserRole.USER));
+        List<User> mockUsers = new ArrayList<>();
+        for (int i = 0; i < 2; i++) {
+            User mockUser = new User(i+"-test@yj.com", "password", UserState.NEW, UserRole.USER);
+            mockUser.setId(Long.valueOf(i));
+            mockUsers.add(mockUser);
         }
-        when(userRepository.findAll()).thenReturn(users);
+
+        when(userRepository.findByStateIn(List.of(UserState.NEW))).thenReturn(mockUsers);
 
         // when
-        List<UserResponseDto> newUsers = userService.findAllUsers(new UserState[]{UserState.NEW });
-        List<UserResponseDto> normalUsers = userService.findAllUsers(new UserState[]{UserState.NORMAL});
+        List<UserResponseDto> newUsers = userService.findAllUsers(List.of(UserState.NEW));
+        List<UserResponseDto> normalUsers = userService.findAllUsers(List.of(UserState.NORMAL));
 
         // then
-        assertNotNull(newUsers);
-        assertNotNull(normalUsers);
-        assertEquals(10, newUsers.size());
+        assertEquals(2, newUsers.size());
         assertEquals(0, normalUsers.size());
+        verify(userRepository, times(1)).findByStateIn(List.of(UserState.NEW));
+        verify(userRepository, times(1)).findByStateIn(List.of(UserState.NORMAL));
     }
 
     @Test
@@ -308,7 +315,6 @@ class UserServiceTest {
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(authService.encodePassword(newPassword)).thenReturn("encoded-password");
-        doNothing().when(userLogService).putUpdateInfoLog(any(UpdatePrivacyInfoDto.class));
 
         // when
         UserResponseDto result = userService.updatePasswordById(userId, newPassword);
@@ -329,7 +335,6 @@ class UserServiceTest {
         user.setId(userId);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        doNothing().when(userLogService).putUpdateInfoLog(any(UpdateInfoDto.class));
 
         // when
         UserResponseDto result = userService.updateStateById(userId, newState);
@@ -349,15 +354,13 @@ class UserServiceTest {
         mockUser.setId(userId);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
-        doNothing().when(userLogService).putUpdateInfoLog(any(UpdatePrivacyInfoDto.class));
         doNothing().when(authService).revokeAllSessionsByUserId(userId);
 
         // when
-        userService.deleteById(new UserDeleteDto(userId, "127.0.0.1", "chrome"));
+        userService.deleteById(DeleteUserServiceDto.of(userId, "127.0.0.1", "chrome"));
 
         // then
         verify(authService, times(1)).revokeAllSessionsByUserId(userId);
-        verify(userLogService, times(1)).putUpdateInfoLog(any(UpdatePrivacyInfoDto.class));
     }
 
     @Test
@@ -373,7 +376,6 @@ class UserServiceTest {
         when(authService.generateResetPassword(RESET_PASSWORD_LENGTH)).thenReturn(expected);
         when(mailService.createMailMessage(any(MailMessageDto.class))).thenReturn(mock(MimeMessage.class));
         doNothing().when(mailService).sendMail(anyString(), any(MimeMessage.class));
-        doNothing().when(userLogService).putUpdateInfoLog(any(UpdatePrivacyInfoDto.class));
 
         // when
         String actual = userService.resetPassword(userId);

@@ -2,13 +2,11 @@ package io.andy.shorten_url.user_log.dto;
 
 import io.andy.shorten_url.user.constant.UserRole;
 import io.andy.shorten_url.user.constant.UserState;
+import io.andy.shorten_url.user.dto.UserResponseDto;
 import io.andy.shorten_url.user_log.constant.UserLogMessage;
 
 import jakarta.validation.constraints.NotNull;
 
-import lombok.Builder;
-
-@Builder
 public record UpdatePrivacyInfoDto(
         @NotNull(message = "userId must be required by updated privacy info")
         Long userId,
@@ -22,4 +20,20 @@ public record UpdatePrivacyInfoDto(
         String ipAddress,
         @NotNull(message = "user agent must be required by updated privacy info")
         String userAgent
-) { }
+) {
+        public static UpdateUserInfoDto build(
+                UserResponseDto userDto,
+                UserLogMessage logMessage,
+                String ipAddress,
+                String userAgent
+        ) {
+                return new UpdateUserInfoDto(
+                        userDto.id(),
+                        userDto.state(),
+                        userDto.role(),
+                        logMessage,
+                        ipAddress,
+                        userAgent
+                );
+        }
+}

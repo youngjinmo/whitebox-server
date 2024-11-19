@@ -3,7 +3,6 @@ package io.andy.shorten_url.user.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.andy.shorten_url.auth.token.dto.TokenResponseDto;
-import io.andy.shorten_url.config.SecurityConfig;
 import io.andy.shorten_url.exception.client.BadRequestException;
 import io.andy.shorten_url.exception.client.UnauthorizedException;
 import io.andy.shorten_url.user.constant.UserRole;
@@ -18,12 +17,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.mockito.Mockito.*;
@@ -31,8 +28,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(UserController.class)
-@Import(SecurityConfig.class)
+@WebMvcTest(controllers = UserController.class)
+//@Import(SecurityConfig.class)
+@AutoConfigureMockMvc(addFilters = false)
 class UserControllerTest {
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
@@ -190,14 +188,6 @@ class UserControllerTest {
         mockUser.setId(userId);
         UserResponseDto userResponseDto = UserResponseDto.from(mockUser);
 
-        // mock spring security
-        PrincipalDetails mockUserDetails = new PrincipalDetails(mockUser);
-
-        SecurityContextHolder.getContext().setAuthentication(
-                new UsernamePasswordAuthenticationToken(mockUserDetails, null, mockUserDetails.getAuthorities())
-        );
-
-        when(mockUserDetails.getUsername()).thenReturn(username);
         when(userService.findById(userId)).thenReturn(userResponseDto);
         doNothing().when(userService).logout(any(UserLogoutServiceDto.class));
         doNothing().when(userLogService).putUserAccessLog(any(AccessUserInfoDto.class));

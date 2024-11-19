@@ -1,12 +1,20 @@
 package io.andy.shorten_url.auth.token.dto;
 
-import io.andy.shorten_url.user.dto.UserLoginRequestDto;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 
-public record CreateTokenDto(Long userId, String userAgent, String ipAddress) {
-    public CreateTokenDto(Long userId, UserLoginRequestDto userLoginDto) {
-        this(userId, userLoginDto.userAgent(), userLoginDto.ipAddress());
+@Getter
+@AllArgsConstructor
+public class CreateTokenDto {
+    private final Long userId;
+    private final String ipAddress;
+    private final String userAgent;
+
+    public static CreateTokenDto of(Long userId, String ipAddress, String userAgent) {
+        return new CreateTokenDto(userId, ipAddress, userAgent);
     }
-    public CreateTokenDto(VerifyTokenDto verifyTokenDto) {
-        this(verifyTokenDto.userId(), verifyTokenDto.userAgent(), verifyTokenDto.ipAddress());
+
+    public static CreateTokenDto from(VerifyTokenDto tokenDto) {
+        return new CreateTokenDto(tokenDto.getUserId(), tokenDto.getIpAddress(), tokenDto.getUserAgent());
     }
 }

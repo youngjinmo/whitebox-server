@@ -34,9 +34,9 @@ public class TokenService {
 
         return Jwts.builder()
                 .subject(this.subject)
-                .claim("userId", createTokenDto.userId())
-                .claim("userAgent", createTokenDto.userAgent())
-                .claim("ipAddress", createTokenDto.ipAddress())
+                .claim("userId", createTokenDto.getUserId())
+                .claim("userAgent", createTokenDto.getUserAgent())
+                .claim("ipAddress", createTokenDto.getIpAddress())
                 .issuedAt(Date.from(current))
                 .expiration(Date.from(expiration))
                 .signWith(secretKey)
@@ -45,21 +45,21 @@ public class TokenService {
 
     public void verifyToken(VerifyTokenDto verifyTokenDto) {
         // 토큰 만료 확인
-        if (isTokenExpired(verifyTokenDto.token())) {
+        if (isTokenExpired(verifyTokenDto.getToken())) {
             throw new TokenExpiredException();
         }
         // 토큰 발행 서버 확인
-        if (isInvalidTokenSubject(verifyTokenDto.token())) {
-            log.debug("wrong token subject while verify token, userId={}", verifyTokenDto.userId());
+        if (isInvalidTokenSubject(verifyTokenDto.getToken())) {
+            log.debug("wrong token subject while verify token, userId={}", verifyTokenDto.getUserId());
             throw new BadRequestException("WRONG TOKEN REQUEST");
         }
         // 토큰 claims 확인
-        Long userId = parsePayload(verifyTokenDto.token(), "userId", Long.class);
-        String userAgent = parsePayload(verifyTokenDto.token(), "userAgent", String.class);
-        String ipAddress = parsePayload(verifyTokenDto.token(), "ipAddress", String.class);
-        if (!userId.equals(verifyTokenDto.userId()) ||
-                !userAgent.equals(verifyTokenDto.userAgent()) ||
-                !ipAddress.equals(verifyTokenDto.ipAddress())
+        Long userId = parsePayload(verifyTokenDto.getToken(), "userId", Long.class);
+        String userAgent = parsePayload(verifyTokenDto.getToken(), "userAgent", String.class);
+        String ipAddress = parsePayload(verifyTokenDto.getToken(), "ipAddress", String.class);
+        if (!userId.equals(verifyTokenDto.getUserId()) ||
+                !userAgent.equals(verifyTokenDto.getUserAgent()) ||
+                !ipAddress.equals(verifyTokenDto.getIpAddress())
         ) {
             throw new UnauthorizedException("UNAUTHORIZED TOKEN");
         }

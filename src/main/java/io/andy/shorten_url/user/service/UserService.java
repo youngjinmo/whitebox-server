@@ -6,16 +6,16 @@ import io.andy.shorten_url.user.dto.*;
 import java.util.List;
 
 public interface UserService {
-    UserResponseDto signUpByUsername(UserSignUpDto userDto, String password);
-    UserLoginResponseDto login(UserLoginRequestDto userDto, String password);
-    void logout(UserLogOutDto userDto);
-    List<UserResponseDto> findAllUsers(UserState[] states);
+    UserResponseDto createByEmail(CreateUserServiceDto userDto);
+    UserLoginResponseDto login(UserLoginServiceDto userDto);
+    void logout(UserLogoutServiceDto userDto);
+    List<UserResponseDto> findAllUsers(List<UserState> states);
     UserResponseDto findById(Long id);
     UserResponseDto findByUsername(String username);
     UserResponseDto updateUsernameById(Long id, String username);
     UserResponseDto updatePasswordById(Long id, String password);
     UserResponseDto updateStateById(Long id, UserState state);
-    void deleteById(UserDeleteDto dto);
+    void deleteById(DeleteUserServiceDto userDto);
     boolean isDuplicateUsername(String username);
     String resetPassword(Long id);
     void sendEmailAuthCode(String recipient);
