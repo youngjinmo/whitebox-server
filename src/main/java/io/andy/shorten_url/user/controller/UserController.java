@@ -40,7 +40,10 @@ public class UserController {
             // parse client access into
             Map<ClientInfo, String> accessInfo = ClientMapper.parseAccessInfo(request);
 
+            // create user
             UserResponseDto userDto = userService.createByEmail(CreateUserServiceDto.from(signUpDto));
+
+            // put log
             userLogService.putUserAccessLog(AccessUserInfoDto.build(
                     userDto,
                     UserLogMessage.SIGNUP,
@@ -62,11 +65,14 @@ public class UserController {
             // parse client access into
             Map<ClientInfo, String> accessInfo = ClientMapper.parseAccessInfo(request);
 
+            // grant token
             UserLoginResponseDto userDto = userService.login(UserLoginServiceDto.build(
                     loginDto,
                     accessInfo.get(ClientInfo.IP_ADDRESS),
                     accessInfo.get(ClientInfo.USER_AGENT))
             );
+
+            // put log
             userLogService.putUserAccessLog(AccessUserInfoDto.build(
                     userDto,
                     UserLogMessage.LOGIN,
@@ -85,9 +91,6 @@ public class UserController {
     @PostMapping("/email-verification-code")
     public ResponseEntity<Void> sendEmailAuth(@RequestBody String recipient) {
         try {
-            if (userService.isDuplicateUsername(recipient)) {
-                throw new ForbiddenException("EMAIL DUPLICATED");
-            }
             this.userService.sendEmailAuthCode(recipient);
 
             return ResponseEntity.ok().build();
@@ -117,6 +120,8 @@ public class UserController {
 
             // verify token
             UserLogoutResponseDto logoutResponseDto = userService.logout(UserLogoutRequestDto.build(accessInfo.get(ClientInfo.TOKEN)));
+
+            // put log
             userLogService.putUserAccessLog(AccessUserInfoDto.build(
                     logoutResponseDto,
                     UserLogMessage.LOGOUT,
@@ -172,12 +177,14 @@ public class UserController {
     @PatchMapping("/username")
     public ResponseEntity<UserResponseDto> updateUsername(HttpServletRequest request, @RequestBody String givenUsername) {
         try {
+            // parse token from request
             String accessToken = ClientMapper.parseAuthToken(request);
 
             long userId = userService.parseUserIdFromToken(accessToken);
             UserResponseDto previousUser = userService.findById(userId);
 
             UserResponseDto postUser = userService.updateUsernameById(previousUser.id(), givenUsername);
+
             userLogService.putUpdateInfoLog(UpdateUserInfoDto.build(
                     postUser,
                     UserLogMessage.UPDATE_USERNAME,
