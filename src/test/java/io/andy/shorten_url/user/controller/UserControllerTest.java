@@ -11,6 +11,7 @@ import io.andy.shorten_url.user.dto.*;
 import io.andy.shorten_url.user.entity.User;
 import io.andy.shorten_url.user.service.UserService;
 import io.andy.shorten_url.user_log.dto.AccessUserInfoDto;
+import io.andy.shorten_url.user_log.dto.UpdatePrivacyInfoDto;
 import io.andy.shorten_url.user_log.service.UserLogService;
 
 import org.junit.jupiter.api.DisplayName;
@@ -29,7 +30,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(controllers = UserController.class)
-//@Import(SecurityConfig.class)
 @AutoConfigureMockMvc(addFilters = false)
 class UserControllerTest {
     @Autowired private MockMvc mockMvc;
@@ -179,38 +179,61 @@ class UserControllerTest {
     void logout() throws Exception {
         // given
         Long userId = 1L;
-        String username = "test@gmail.com";
-        String givenPassword = "given_password";
-        String ipAddress = "127.0.0.1";
-        String userAgent = "test";
+        UserRole role = UserRole.USER;
+        UserState state = UserState.NORMAL;
 
-        User mockUser = new User(username, givenPassword, UserState.NEW, UserRole.USER);
-        mockUser.setId(userId);
-        UserResponseDto userResponseDto = UserResponseDto.from(mockUser);
-
-        when(userService.findById(userId)).thenReturn(userResponseDto);
-        doNothing().when(userService).logout(any(UserLogoutServiceDto.class));
+        when(userService.logout(any(UserLogoutRequestDto.class)))
+                .thenReturn(UserLogoutResponseDto.build(userId, role, state));
         doNothing().when(userLogService).putUserAccessLog(any(AccessUserInfoDto.class));
 
         // when & then
-        mockMvc.perform(delete("/api/user/{id}/logout", userId)
+        mockMvc.perform(delete("/api/user/logout")
                     .contentType(MediaType.APPLICATION_JSON)
                     .header("Authorization", "Bearer mock-access-token")
-                    .header("X-Forwarded-For", ipAddress)
-                    .header("User-Agent", userAgent))
+                    .header("X-Forwarded-For", "127.0.0.1")
+                    .header("User-Agent", "test"))
                     .andExpect(status().isOk());
     }
 
     @Test
+    @DisplayName("user 조회 (by id)")
     void findUserById() throws Exception {
         // given
+        Long userId = 1L;
+        User mockUser = new User("test@gmail.com", "given-password", UserState.NORMAL, UserRole.USER);
+        mockUser.setId(userId);
+
+        when(userService.findById(userId)).thenReturn(UserResponseDto.from(mockUser));
 
         // when & then
-
+        mockMvc.perform(get("/api/user/{id}", userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer mock-access-token")
+                        .header("X-Forwarded-For", "127.0.0.1")
+                        .header("User-Agent", "test"))
+                .andExpect(status().isOk());
     }
 
     @Test
-    void deleteUser() throws Exception {
+    @DisplayName("탈퇴 신청 회원")
+    void withdrawUser() throws Exception {
+        // given
+        Long userId = 1L;
+        User mockUser = new User("test@gmail.com", "given-password", UserState.NORMAL, UserRole.USER);
+        mockUser.setId(userId);
+
+        when(userService.parseUserIdFromToken(anyString())).thenReturn(userId);
+        when(userService.findById(userId)).thenReturn(UserResponseDto.from(mockUser));
+        when(userService.updateStateById(userId, UserState.WITHDRAWN)).thenReturn(UserResponseDto.from(mockUser));
+        doNothing().when(userLogService).putUpdateInfoLog(any(UpdatePrivacyInfoDto.class));
+
+        // when & then
+        mockMvc.perform(delete("/api/user/withdraw")
+                .contentType(MediaType.APPLICATION_JSON)
+                .header("Authorization", "Bearer mock-access-token")
+                .header("X-Forwarded-For", "127.0.0.1")
+                .header("User-Agent", "test"))
+                .andExpect(status().isOk());
     }
 
     @Test

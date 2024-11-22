@@ -2,7 +2,7 @@ package io.andy.shorten_url.auth;
 
 import io.andy.shorten_url.auth.token.TokenService;
 import io.andy.shorten_url.auth.token.dto.TokenResponseDto;
-import io.andy.shorten_url.auth.token.dto.CreateTokenDto;
+import io.andy.shorten_url.auth.token.dto.TokenRequestDto;
 import io.andy.shorten_url.auth.token.dto.VerifyTokenDto;
 import io.andy.shorten_url.exception.client.BadRequestException;
 import io.andy.shorten_url.exception.client.UnauthorizedException;
@@ -65,13 +65,13 @@ class AuthServiceTest {
         String mockAccessToken = "mock-access-token";
         String mockRefreshToken = "mock-refresh-token";
 
-        when(tokenService.createToken(any(CreateTokenDto.class), anyLong()))
+        when(tokenService.createToken(any(TokenRequestDto.class), anyLong()))
                 .thenReturn(mockAccessToken)
                 .thenReturn(mockRefreshToken);
         doNothing().when(sessionService).set(anyString(), anyString(), anyLong());
 
         // when
-        TokenResponseDto tokenResponseDto = authService.grantAuthToken(CreateTokenDto.of(1L, "chrome", "127.0.0.1"));
+        TokenResponseDto tokenResponseDto = authService.grantAuthToken(TokenRequestDto.build(1L, "chrome", "127.0.0.1"));
 
         // then
         assertEquals(mockAccessToken, tokenResponseDto.accessToken());
@@ -83,18 +83,23 @@ class AuthServiceTest {
     @DisplayName("정상 토큰으로 검증시 성공")
     void verifyAuthToken() {
         // given
+        Long userId = 1L;
+        String ipAddress = "127.0.0.1";
+        String userAgent = "Firefox";
         String mockAccessToken = "mock-access-token";
         String mockRefreshToken = "mock-refresh-token";
+        String sessionValue = createSessionValue(userId, mockRefreshToken);
 
-        doNothing().when(tokenService).verifyToken(any(VerifyTokenDto.class));
-        when(sessionService.get(anyString())).thenReturn(mockRefreshToken);
+        VerifyTokenDto mockTokenDto = VerifyTokenDto.build(userId, ipAddress, userAgent, mockAccessToken);
+
+        when(tokenService.verifyToken(anyString())).thenReturn(mockTokenDto);
+        when(sessionService.get(anyString())).thenReturn(sessionValue);
 
         // when
-        TokenResponseDto result = authService.verifyAuthToken(VerifyTokenDto.of(1L, "127.0.0.1", "firefox", mockAccessToken));
+        VerifyTokenDto result = authService.verifyAuthToken(mockAccessToken);
 
         // then
-        assertEquals(mockAccessToken, result.accessToken());
-        assertEquals(mockRefreshToken, result.refreshToken());
+        assertEquals(mockAccessToken, result.getToken());
         verify(sessionService, times(0)).set(anyString(), anyString(), anyLong());
     }
 
@@ -102,62 +107,63 @@ class AuthServiceTest {
     @DisplayName("만료된 액세스 토큰으로 검증시 리프레싱")
     void refreshTokenByExpiredToken() {
         // given
+        Long userId = 1L;
+        String ipAddress = "127.0.0.1";
+        String userAgent = "Firefox";
         String mockAccessToken = "mock-access-token";
         String mockRefreshToken = "mock-refresh-token";
+        String sessionValue = createSessionValue(userId, mockRefreshToken);
 
-        doThrow(TokenExpiredException.class).when(tokenService).verifyToken(any(VerifyTokenDto.class));
-        when(sessionService.get(anyString())).thenReturn(mockRefreshToken);
+        when(tokenService.verifyToken(anyString()))
+                .thenThrow(TokenExpiredException.class)
+                .thenReturn(VerifyTokenDto.build(userId, ipAddress, userAgent, mockAccessToken));
+        when(sessionService.get(anyString())).thenReturn(sessionValue);
         doNothing().when(sessionService).delete(anyString());
-        when(tokenService.createToken(any(CreateTokenDto.class), anyLong()))
+        when(tokenService.createToken(any(TokenRequestDto.class), anyLong()))
                 .thenReturn("new-access-token")
                 .thenReturn("new-refresh-token");
 
         // when
-        TokenResponseDto result = authService.verifyAuthToken(VerifyTokenDto.of(1L, "127.0.0.1", "firefox", mockAccessToken));
+        VerifyTokenDto result = authService.verifyAuthToken(mockAccessToken);
 
         // then
-        assertNotEquals(mockAccessToken, result.accessToken());
-        assertNotEquals(mockRefreshToken, result.refreshToken());
+        assertNotEquals(mockAccessToken, result.getToken());
         verify(sessionService, times(1)).delete(anyString());
         verify(sessionService, times(1)).set(anyString(), anyString(), anyLong());
     }
 
     @Test
-    @DisplayName("모든 토큰이 만료되어 401 예외 처리")
+    @DisplayName("리프레시 토큰이 만료되어 401 예외 처리")
     void refreshAllTokensWithExpiredRefreshToken() {
         // given
+        Long userId = 1L;
+        String ipAddress = "127.0.0.1";
+        String userAgent = "Safari";
         String mockAccessToken = "mock-access-token";
 
-        doThrow(TokenExpiredException.class).when(tokenService).verifyToken(any(VerifyTokenDto.class));
+        when(tokenService.verifyToken(anyString()))
+                .thenThrow(TokenExpiredException.class)
+                .thenReturn(VerifyTokenDto.build(userId, ipAddress, userAgent, mockAccessToken));
         when(sessionService.get(anyString())).thenReturn(null);
 
         // when & then
-        assertThrows(UnauthorizedException.class, () -> authService.verifyAuthToken(VerifyTokenDto.of(1L, "127.0.0.1", "chrome", mockAccessToken)));
+        assertThrows(UnauthorizedException.class, () -> authService.verifyAuthToken(mockAccessToken));
     }
 
     @Test
     @DisplayName("토큰 비활성화")
     void revokeAuthToken() {
         // given
+        Long userId = 1L;
         String mockAccessToken = "mock-access-token";
+        String mockRefreshToken = "mock-refresh-token";
+        String mockSessionValue = createSessionValue(userId, mockAccessToken);
 
-        when(sessionService.get(anyString())).thenReturn(mockAccessToken);
+        when(sessionService.get(anyString())).thenReturn(mockSessionValue);
 
         // when & then
-        assertDoesNotThrow(() -> authService.revokeAuthToken(1L, mockAccessToken));
+        assertDoesNotThrow(() -> authService.revokeAuthToken(mockAccessToken));
         verify(sessionService, times(1)).delete(anyString());
-    }
-
-    @Test
-    @DisplayName("userId 기반으로 모든 세션 삭제 (탈퇴)")
-    void revokeAllSessionsByUserId() {
-        // given
-        Long userId = 1L;
-
-        doNothing().when(sessionService).flushByWildcard(anyString());
-
-        // when
-        assertDoesNotThrow(() -> authService.revokeAllSessionsByUserId(userId));
     }
 
     @Test
@@ -215,5 +221,9 @@ class AuthServiceTest {
 
         // when & then
         assertThrows(UnauthorizedException.class, () -> authService.verifyEmail(mockEmail, mockVerificationCode));
+    }
+
+    private String createSessionValue(Long userId, String refreshToken) {
+        return String.format("%d:%s", userId, refreshToken);
     }
 }

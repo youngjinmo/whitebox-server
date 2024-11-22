@@ -2,15 +2,14 @@ package io.andy.shorten_url.auth;
 
 import io.andy.shorten_url.auth.token.TokenService;
 import io.andy.shorten_url.auth.token.dto.TokenResponseDto;
-import io.andy.shorten_url.auth.token.dto.CreateTokenDto;
+import io.andy.shorten_url.auth.token.dto.TokenRequestDto;
 import io.andy.shorten_url.auth.token.dto.VerifyTokenDto;
 import io.andy.shorten_url.exception.client.BadRequestException;
+import io.andy.shorten_url.exception.client.NotFoundException;
 import io.andy.shorten_url.exception.client.UnauthorizedException;
 import io.andy.shorten_url.exception.server.InternalServerException;
 import io.andy.shorten_url.exception.server.TokenExpiredException;
 import io.andy.shorten_url.util.random.RandomUtility;
-
-import jakarta.validation.constraints.Min;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -54,45 +53,48 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public String generateResetPassword(@Min(8) int length) {
-        return randomUtility.generate(length);
+    public String generateResetPassword() {
+        return randomUtility.generate(RESET_PASSWORD_LENGTH);
     }
 
     @Override
-    public TokenResponseDto grantAuthToken(CreateTokenDto createTokenDto) {
+    public TokenResponseDto grantAuthToken(TokenRequestDto tokenRequestDto) {
         try {
-            String accessToken = createAccessToken(createTokenDto);
-            String refreshToken = createRefreshToken(createTokenDto);
-            String tokenKey = createTokenKey(createTokenDto.getUserId(), accessToken);
+            // create session key (prefix:access_token)
+            String accessToken = createAccessToken(tokenRequestDto);
+            String sessionKey = createSessionKey(accessToken);
 
-            sessionService.set(tokenKey, refreshToken, REFRESH_TOKEN_EXPIRATION);
+            // create session value (userId:refresh_token)
+            String refreshToken = createRefreshToken(tokenRequestDto);
+            String sessionValue = createSessionValue(tokenRequestDto.getUserId(), refreshToken);
 
-            return new TokenResponseDto(accessToken, refreshToken);
+            sessionService.set(sessionKey, sessionValue, REFRESH_TOKEN_EXPIRATION);
+
+            return TokenResponseDto.build(accessToken, refreshToken);
         } catch (Exception e) {
-            log.error("failed to grant auth token, userId={}, error message={}", createTokenDto.getUserId(), e.getMessage());
+            log.error("failed to grant auth token, userId={}, error message={}", tokenRequestDto.getUserId(), e.getMessage());
             throw new InternalServerException("FAILED TO GRANT AUTH TOKEN");
         }
     }
 
     @Override
     @Transactional
-    public TokenResponseDto verifyAuthToken(VerifyTokenDto verifyTokenDto) {
+    public VerifyTokenDto verifyAuthToken(String accessToken) {
         // 토큰 키 생성
-        String tokenKey = createTokenKey(verifyTokenDto.getUserId(), verifyTokenDto.getToken());
+        String tokenKey = createSessionKey(accessToken);
 
         try {
-            // 액세스 토큰 검증
-            tokenService.verifyToken(verifyTokenDto);
+            // verify access token
+            VerifyTokenDto verifyTokenDto = tokenService.verifyToken(accessToken);
 
-            // redis 에서 조회 (서버에서 발급된 토큰인지 검증)
-            String refreshToken = getAuthTokenByKey(tokenKey);
-            if (Objects.isNull(refreshToken)) {
+            // get token from session storage(redis)
+            if (Objects.isNull(getAuthTokenByKey(tokenKey))) {
                 log.debug("not found access token in the session storage, userId={}", verifyTokenDto.getUserId());
                 throw new UnauthorizedException();
             }
 
-            // 인증 성공
-            return new TokenResponseDto(verifyTokenDto.getToken(), refreshToken);
+            // success to verified
+            return verifyTokenDto;
 
         } catch (TokenExpiredException e) {
 
@@ -101,57 +103,48 @@ public class AuthServiceImpl implements AuthService {
                 valid   -> redis에 토큰 있으면 토큰 갱신을 위해 세션 삭제
                 invalid -> redis에 없으면 비정상적 토큰이기에 401 예외
              */
+            VerifyTokenDto verifyTokenDto = tokenService.verifyToken(accessToken);
             try {
                 String refreshToken = getAuthTokenByKey(tokenKey);
-                revokeAuthToken(verifyTokenDto.getUserId(), refreshToken);
+                revokeAuthToken(refreshToken);
             } catch (NullPointerException | UnauthorizedException ex) {
                 throw new UnauthorizedException("EXPIRED REFRESH TOKEN");
             }
 
-            // 새 토큰 생성
-            CreateTokenDto createTokenDto = CreateTokenDto.from(verifyTokenDto);
-            String accessToken = createAccessToken(createTokenDto);
-            String refreshToken = createRefreshToken(createTokenDto);
+            // refresh tokens (access/refresh)
+            TokenRequestDto tokenRequestDto = TokenRequestDto.from(verifyTokenDto);
+            String newAccessToken = createAccessToken(tokenRequestDto);
+            String refreshToken = createRefreshToken(tokenRequestDto);
 
-            // redis 에 새 토큰 추가
-            String newTokenKey = createTokenKey(verifyTokenDto.getUserId(), accessToken);
+            // set new token into the session storage
+            String newTokenKey = createSessionKey(newAccessToken);
             sessionService.set(newTokenKey, refreshToken, REFRESH_TOKEN_EXPIRATION);
 
-            return new TokenResponseDto(accessToken, refreshToken);
+            return VerifyTokenDto.build(
+                    verifyTokenDto.getUserId(),
+                    verifyTokenDto.getIpAddress(),
+                    verifyTokenDto.getUserAgent(),
+                    refreshToken
+            );
         }
     }
 
     @Override
-    public void revokeAuthToken(Long userId, String token) {
-        String tokenKey = createTokenKey(userId, token);
+    public void revokeAuthToken(String token) {
+        String tokenKey = createSessionKey(token);
 
         String storedAuthToken = getAuthTokenByKey(tokenKey);
         if (Objects.isNull(storedAuthToken)) {
-            log.debug("not found auth token in the session storage, userId={}", userId);
-            throw new UnauthorizedException();
+            log.info("not found auth token in the session storage");
+            throw new NotFoundException();
         }
 
         try {
             sessionService.delete(tokenKey);
-            log.info("revoked token, userId={}", userId);
+            log.info("revoked token");
         } catch (Exception e) {
-            log.error("failed to revoke auth token, userId={}", userId);
+            log.error("failed to revoke auth token");
             throw new InternalServerException();
-        }
-    }
-
-    /**
-     *  only use when delete account, do not use when logout
-     * @param userId
-     */
-    @Override
-    public void revokeAllSessionsByUserId(Long userId) {
-        try {
-            String wildcardKey = createWildcardKey(userId);
-            sessionService.flushByWildcard(wildcardKey);
-            log.info("revoked all sessions by userId={}", userId);
-        } catch (Exception e) {
-            log.error("failed to revoke tokens by userId={}, error message={}", userId, e.getMessage());
         }
     }
 
@@ -204,20 +197,21 @@ public class AuthServiceImpl implements AuthService {
         log.info("verified email {}", recipient);
     }
 
-    private String createAccessToken(CreateTokenDto createTokenDto) {
-        return tokenService.createToken(createTokenDto, ACCESS_TOKEN_EXPIRATION);
+    private String createAccessToken(TokenRequestDto tokenRequestDto) {
+        return tokenService.createToken(tokenRequestDto, ACCESS_TOKEN_EXPIRATION);
     }
 
-    private String createRefreshToken(CreateTokenDto createTokenDto) {
-        return tokenService.createToken(createTokenDto, REFRESH_TOKEN_EXPIRATION);
+    private String createRefreshToken(TokenRequestDto tokenRequestDto) {
+        return tokenService.createToken(tokenRequestDto, REFRESH_TOKEN_EXPIRATION);
     }
 
     private String getAuthTokenByKey(String key) {
-        Object refreshToken = sessionService.get(key);
-        if (Objects.isNull(refreshToken)) {
+        Object sessionValue = sessionService.get(key);
+        if (Objects.isNull(sessionValue)) {
             throw new UnauthorizedException("NOT FOUND TOKEN IN THE SESSION STORAGE");
         }
-        return String.valueOf(refreshToken);
+        // return refresh token
+        return String.valueOf(sessionValue).split(":")[1];
     }
 
     private String getVerificationEmailCodeByKey(String key) {
@@ -228,12 +222,12 @@ public class AuthServiceImpl implements AuthService {
         return String.valueOf(verificationCode);
     }
 
-    private String createTokenKey(Long userId, String accessToken) {
-        return String.format("%s:%s:%s", AUTH_TOKEN_KEY_PREFIX, userId, accessToken);
+    private String createSessionKey(String accessToken) {
+        return String.format("%s:%s", AUTH_TOKEN_KEY_PREFIX, accessToken);
     }
 
-    private String createWildcardKey(Long userId) {
-        return String.format("%s:%s:*", AUTH_TOKEN_KEY_PREFIX, userId);
+    private String createSessionValue(Long userId, String refreshToken) {
+        return String.format("%d:%s", userId, refreshToken);
     }
 
     private String createVerificationEmailKey(String recipient) {

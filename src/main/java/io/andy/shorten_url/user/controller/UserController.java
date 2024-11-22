@@ -1,6 +1,5 @@
 package io.andy.shorten_url.user.controller;
 
-import io.andy.shorten_url.auth.token.dto.TokenResponseDto;
 import io.andy.shorten_url.exception.client.BadRequestException;
 import io.andy.shorten_url.exception.client.ForbiddenException;
 import io.andy.shorten_url.exception.client.UnauthorizedException;
@@ -12,7 +11,8 @@ import io.andy.shorten_url.user_log.dto.AccessUserInfoDto;
 import io.andy.shorten_url.user_log.dto.UpdatePrivacyInfoDto;
 import io.andy.shorten_url.user_log.dto.UpdateUserInfoDto;
 import io.andy.shorten_url.user_log.service.UserLogService;
-import io.andy.shorten_url.util.ClientMapper;
+import io.andy.shorten_url.util.mapper.ClientInfo;
+import io.andy.shorten_url.util.mapper.ClientMapper;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -25,6 +25,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @RequestMapping("/api/user")
 @RestController
@@ -35,12 +36,17 @@ public class UserController {
 
     @PostMapping("/create")
     public ResponseEntity<UserResponseDto> SignUp(HttpServletRequest request, @RequestBody CreateUserRequestDto signUpDto) {
-        String ipAddress = ClientMapper.parseClientIp(request);
-        String userAgent = ClientMapper.parseUserAgent(request);
-
         try {
+            // parse client access into
+            Map<ClientInfo, String> accessInfo = ClientMapper.parseAccessInfo(request);
+
             UserResponseDto userDto = userService.createByEmail(CreateUserServiceDto.from(signUpDto));
-            userLogService.putUserAccessLog(AccessUserInfoDto.build(userDto, UserLogMessage.SIGNUP, ipAddress, userAgent));
+            userLogService.putUserAccessLog(AccessUserInfoDto.build(
+                    userDto,
+                    UserLogMessage.SIGNUP,
+                    accessInfo.get(ClientInfo.IP_ADDRESS),
+                    accessInfo.get(ClientInfo.USER_AGENT))
+            );
 
             return new ResponseEntity<>(userDto, HttpStatus.CREATED);
         } catch (BadRequestException e) {
@@ -52,14 +58,23 @@ public class UserController {
 
     @PostMapping("/login")
     public ResponseEntity<UserLoginResponseDto> Login(HttpServletRequest request, @RequestBody UserLoginRequestDto loginDto) {
-        String ipAddress = ClientMapper.parseClientIp(request);
-        String userAgent = ClientMapper.parseUserAgent(request);
-
         try {
-            UserLoginResponseDto userDto = userService.login(UserLoginServiceDto.build(loginDto, ipAddress, userAgent));
-            userLogService.putUserAccessLog(AccessUserInfoDto.build(userDto, UserLogMessage.LOGIN, ipAddress, userAgent));
+            // parse client access into
+            Map<ClientInfo, String> accessInfo = ClientMapper.parseAccessInfo(request);
 
-            return new ResponseEntity<>(userDto, HttpStatus.OK);
+            UserLoginResponseDto userDto = userService.login(UserLoginServiceDto.build(
+                    loginDto,
+                    accessInfo.get(ClientInfo.IP_ADDRESS),
+                    accessInfo.get(ClientInfo.USER_AGENT))
+            );
+            userLogService.putUserAccessLog(AccessUserInfoDto.build(
+                    userDto,
+                    UserLogMessage.LOGIN,
+                    accessInfo.get(ClientInfo.IP_ADDRESS),
+                    accessInfo.get(ClientInfo.USER_AGENT))
+            );
+
+            return ResponseEntity.ok(userDto);
         } catch (UnauthorizedException e) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, e.getMessage());
         } catch (Exception e) {
@@ -75,7 +90,7 @@ public class UserController {
             }
             this.userService.sendEmailAuthCode(recipient);
 
-            return new ResponseEntity<>(HttpStatus.OK);
+            return ResponseEntity.ok().build();
         } catch (ForbiddenException e) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, e.getMessage());
         } catch (Exception e) {
@@ -88,24 +103,28 @@ public class UserController {
         try {
             userService.verifyEmail(recipient, verificationCode);
 
-            return new ResponseEntity<>("verified", HttpStatus.OK);
+            return ResponseEntity.ok("verified");
         } catch (Exception e) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, e.getMessage());
         }
     }
 
-    @DeleteMapping("/{id}/logout")
-    public ResponseEntity<Void> logout(HttpServletRequest request, @PathVariable("id") Long id) {
-        String ipAddress = ClientMapper.parseClientIp(request);
-        String userAgent = ClientMapper.parseUserAgent(request);
-        TokenResponseDto tokenDto = ClientMapper.parseAuthToken(request);
-
+    @DeleteMapping("/logout")
+    public ResponseEntity<Void> logout(HttpServletRequest request) {
         try {
-            UserResponseDto userDto = userService.findById(id);
-            userService.logout(UserLogoutServiceDto.build(id, tokenDto));
-            userLogService.putUserAccessLog(AccessUserInfoDto.build(userDto, UserLogMessage.LOGOUT, ipAddress, userAgent));
+            // parse client access into
+            Map<ClientInfo, String> accessInfo = ClientMapper.parseAccessInfo(request);
 
-            return new ResponseEntity<>(HttpStatus.OK);
+            // verify token
+            UserLogoutResponseDto logoutResponseDto = userService.logout(UserLogoutRequestDto.build(accessInfo.get(ClientInfo.TOKEN)));
+            userLogService.putUserAccessLog(AccessUserInfoDto.build(
+                    logoutResponseDto,
+                    UserLogMessage.LOGOUT,
+                    accessInfo.get(ClientInfo.IP_ADDRESS),
+                    accessInfo.get(ClientInfo.USER_AGENT))
+            );
+
+            return ResponseEntity.ok().build();
         } catch (UnauthorizedException e) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, e.getMessage());
         } catch (Exception e) {
@@ -118,7 +137,7 @@ public class UserController {
         try {
             List<UserResponseDto> users = userService.findAllUsers(states == null ? new ArrayList<>() : List.of(states));
 
-            return new ResponseEntity<>(users, HttpStatus.OK);
+            return ResponseEntity.ok(users);
         } catch (Exception e) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage());
         }
@@ -129,7 +148,7 @@ public class UserController {
         try {
             UserResponseDto userDto = userService.findById(id);
 
-            return new ResponseEntity<>(userDto, HttpStatus.OK);
+            return ResponseEntity.ok(userDto);
         } catch (UnauthorizedException e) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, e.getMessage());
         } catch (Exception e) {
@@ -142,7 +161,7 @@ public class UserController {
         try{
             UserResponseDto userDto = userService.findByUsername(username);
 
-            return new ResponseEntity<>(userDto, HttpStatus.OK);
+            return ResponseEntity.ok(userDto);
         } catch (UnauthorizedException e) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, e.getMessage());
         } catch (Exception e) {
@@ -150,15 +169,23 @@ public class UserController {
         }
     }
 
-    @PatchMapping("/{id}/username")
-    public ResponseEntity<UserResponseDto> updateUsername(@PathVariable("id") Long id, @RequestBody String username) {
+    @PatchMapping("/username")
+    public ResponseEntity<UserResponseDto> updateUsername(HttpServletRequest request, @RequestBody String givenUsername) {
         try {
-            UserResponseDto previousUser = userService.findById(id);
+            String accessToken = ClientMapper.parseAuthToken(request);
 
-            UserResponseDto userDto = userService.updateUsernameById(id, username);
-            userLogService.putUpdateInfoLog(UpdateUserInfoDto.build(userDto, UserLogMessage.UPDATE_USERNAME, previousUser.username(), username));
+            long userId = userService.parseUserIdFromToken(accessToken);
+            UserResponseDto previousUser = userService.findById(userId);
 
-            return new ResponseEntity<>(userDto, HttpStatus.OK);
+            UserResponseDto postUser = userService.updateUsernameById(previousUser.id(), givenUsername);
+            userLogService.putUpdateInfoLog(UpdateUserInfoDto.build(
+                    postUser,
+                    UserLogMessage.UPDATE_USERNAME,
+                    previousUser.username(),
+                    givenUsername)
+            );
+
+            return ResponseEntity.ok(postUser);
         } catch (UnauthorizedException e) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, e.getMessage());
         } catch (Exception e) {
@@ -166,17 +193,23 @@ public class UserController {
         }
     }
 
-    @PatchMapping("/{id}/password")
-    public ResponseEntity<UserResponseDto> updatePassword(HttpServletRequest request, @PathVariable("id") Long id, @RequestBody String password) {
-        String ipAddress = ClientMapper.parseClientIp(request);
-        String userAgent = ClientMapper.parseUserAgent(request);
-
+    @PatchMapping("/password")
+    public ResponseEntity<UserResponseDto> updatePassword(HttpServletRequest request, String givenPassword) {
         try {
-            UserResponseDto userDto = userService.updatePasswordById(id, password);
+            // parse client access into
+            Map<ClientInfo, String> clientInfo = ClientMapper.parseAccessInfo(request);
 
-            userLogService.putUpdateInfoLog(UpdatePrivacyInfoDto.build(userDto, UserLogMessage.DELETE_USER, ipAddress, userAgent));
+            long userId = userService.parseUserIdFromToken(clientInfo.get(ClientInfo.TOKEN));
+            UserResponseDto userDto = userService.updatePasswordById(userId, givenPassword);
 
-            return new ResponseEntity<>(userDto, HttpStatus.OK);
+            userLogService.putUpdateInfoLog(UpdatePrivacyInfoDto.build(
+                    userDto,
+                    UserLogMessage.DELETE_USER,
+                    clientInfo.get(ClientInfo.IP_ADDRESS),
+                    clientInfo.get(ClientInfo.USER_AGENT))
+            );
+
+            return ResponseEntity.ok(userDto);
         } catch (UnauthorizedException e) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, e.getMessage());
         } catch (Exception e) {
@@ -184,14 +217,23 @@ public class UserController {
         }
     }
 
-    @PatchMapping("/{id}/state")
-    public ResponseEntity<UserResponseDto> updateState(@PathVariable("id") Long id, @RequestBody UserState state) {
+    @PatchMapping("/state")
+    public ResponseEntity<UserResponseDto> updateState(HttpServletRequest request, @RequestBody UserState givenState) {
         try {
-            UserResponseDto previousUserDto = userService.findById(id);
-            UserResponseDto userDto = userService.updateStateById(id, state);
-            userLogService.putUpdateInfoLog(UpdateUserInfoDto.build(previousUserDto, UserLogMessage.UPDATE_STATE, previousUserDto.state().name(), state.name()));
+            String accessToken = ClientMapper.parseAuthToken(request);
 
-            return new ResponseEntity<>(userDto, HttpStatus.OK);
+            long userId = userService.parseUserIdFromToken(accessToken);
+            UserResponseDto previousUserDto = userService.findById(userId);
+            UserResponseDto userDto = userService.updateStateById(userId, givenState);
+
+            userLogService.putUpdateInfoLog(UpdateUserInfoDto.build(
+                    previousUserDto,
+                    UserLogMessage.UPDATE_STATE,
+                    previousUserDto.state().name(),
+                    givenState.name())
+            );
+
+            return ResponseEntity.ok(userDto);
         } catch (UnauthorizedException e) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, e.getMessage());
         } catch (Exception e) {
@@ -199,16 +241,24 @@ public class UserController {
         }
     }
 
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteUser(HttpServletRequest request, @PathVariable("id") Long id) {
-        String ipAddress = ClientMapper.parseClientIp(request);
-        String userAgent = ClientMapper.parseUserAgent(request);
+    @DeleteMapping("/withdraw")
+    public ResponseEntity<Void> withdrawUser(HttpServletRequest request) {
         try {
-            UserResponseDto previousUserDto = userService.findById(id);
-            userService.deleteById(DeleteUserServiceDto.of(id, ipAddress, userAgent));
-            userLogService.putUpdateInfoLog(UpdatePrivacyInfoDto.build(previousUserDto, UserLogMessage.DELETE_USER, ipAddress, userAgent));
+            // parse client access into
+            Map<ClientInfo, String> clientInfo = ClientMapper.parseAccessInfo(request);
 
-            return new ResponseEntity<>(HttpStatus.OK);
+            long userId = userService.parseUserIdFromToken(clientInfo.get(ClientInfo.TOKEN));
+            UserResponseDto previousUserDto = userService.findById(userId);
+            userService.updateStateById(userId, UserState.WITHDRAWN);
+
+            userLogService.putUpdateInfoLog(UpdatePrivacyInfoDto.build(
+                    previousUserDto,
+                    UserLogMessage.DELETE_USER,
+                    clientInfo.get(ClientInfo.IP_ADDRESS),
+                    clientInfo.get(ClientInfo.USER_AGENT))
+            );
+
+            return ResponseEntity.ok().build();
         } catch (UnauthorizedException e) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, e.getMessage());
         } catch (Exception e) {
@@ -216,16 +266,23 @@ public class UserController {
         }
     }
 
-    @PatchMapping("/{id}/reset-password")
-    public ResponseEntity<String> resetPassword(HttpServletRequest request, @PathVariable Long id) {
-        String ipAddress = ClientMapper.parseClientIp(request);
-        String userAgent = ClientMapper.parseUserAgent(request);
+    @PatchMapping("/reset-password")
+    public ResponseEntity<String> resetPassword(HttpServletRequest request, @RequestBody String username) {
         try {
-            UserResponseDto userDto = userService.findById(id);
-            String newPassword = userService.resetPassword(id);
-            userLogService.putUpdateInfoLog(UpdatePrivacyInfoDto.build(userDto, UserLogMessage.UPDATE_PASSWORD, ipAddress, userAgent));
+            // parse client access into
+            Map<ClientInfo, String> clientInfo = ClientMapper.parseAccessInfo(request);
 
-            return new ResponseEntity<>(newPassword, HttpStatus.OK);
+            UserResponseDto userDto = userService.findByUsername(username);
+            String newPassword = userService.resetPassword(userDto.id());
+
+            userLogService.putUpdateInfoLog(UpdatePrivacyInfoDto.build(
+                    userDto,
+                    UserLogMessage.UPDATE_PASSWORD,
+                    clientInfo.get(ClientInfo.IP_ADDRESS),
+                    clientInfo.get(ClientInfo.USER_AGENT))
+            );
+
+            return ResponseEntity.ok(newPassword);
         } catch (UnauthorizedException e) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, e.getMessage());
         } catch (Exception e) {
