@@ -1,7 +1,9 @@
 package io.andy.shorten_url.util;
 
-import io.andy.shorten_url.auth.token.dto.TokenResponseDto;
+import io.andy.shorten_url.exception.client.UnauthorizedException;
 
+import io.andy.shorten_url.util.mapper.ClientInfo;
+import io.andy.shorten_url.util.mapper.ClientMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -12,6 +14,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 
 import java.util.Locale;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -23,11 +26,32 @@ class ClientMapperTest {
         request = new MockHttpServletRequest();
     }
 
+    @Test
+    @DisplayName("접속 정보 파싱해서 map으로 반환")
+    void parseAccessInfo() {
+        // given
+        String clientIp = "127.1.1.1";
+        String userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.5481.100 Safari/537.36 Edg/110.0.1587.57";
+        String token = "mock-access-token";
+
+        request.addHeader("X-Forwarded-For", clientIp);
+        request.addHeader("User-Agent", userAgent);
+        request.addHeader("Authorization", "Bearer " + token);
+
+        // when
+        Map<ClientInfo, String> result = ClientMapper.parseAccessInfo(request);
+
+        // then
+        assertEquals(clientIp, result.get(ClientInfo.IP_ADDRESS));
+        assertEquals("Windows Edge", result.get(ClientInfo.USER_AGENT));
+        assertEquals(token, result.get(ClientInfo.TOKEN));
+    }
+
     @ParameterizedTest
     @DisplayName("ip주소 파싱")
     @ValueSource(strings = {"0:0:0:0:0:0:0:1", "127.0.0.1,128.0.0.1,129.0.0.1"})
     void parseClientIp(String ip) {
-        request.setAttribute("X-Forwarded-For", ip);
+        request.addHeader("X-Forwarded-For", ip);
 
         String parsedClientIp = ClientMapper.parseClientIp(request);
 
@@ -73,16 +97,23 @@ class ClientMapperTest {
         assertEquals("https://www.google.com", referer);
     }
 
-    @ParameterizedTest
-    @CsvSource({"Bearer accessToken,refreshToken,accessToken,refreshToken","wrong-token,wrong-token,,wrong-token"})
+    @Test
     @DisplayName("인증 헤더 파싱")
-    void parseAuthorization(String mockAccessToken, String mockRefreshToken, String expectedAccessToken, String expectedRefreshToken) {
+    void parseAuthorization() {
+        String mockAccessToken = "mockAccessToken";
+        request.addHeader("Authorization", "Bearer "+mockAccessToken);
+
+        String authToken = ClientMapper.parseAuthToken(request);
+
+        assertEquals(mockAccessToken, authToken);
+    }
+
+    @Test
+    @DisplayName("인증 헤더 파싱 예외")
+    void throwExceptionWithWrongToken() {
+        String mockAccessToken = "";
         request.addHeader("Authorization", mockAccessToken);
-        request.addParameter("refresh_token", mockRefreshToken);
 
-        TokenResponseDto authTokens = ClientMapper.parseAuthToken(request);
-
-        assertEquals(expectedAccessToken, authTokens.accessToken());
-        assertEquals(expectedRefreshToken, authTokens.refreshToken());
+        assertThrows(UnauthorizedException.class, () -> ClientMapper.parseAuthToken(request));
     }
 }
