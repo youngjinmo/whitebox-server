@@ -98,10 +98,10 @@ public class ClientMapper {
             return  "Firefox";
         } else if (userAgent.contains("OPR")) {
             return  "Opera";
-        } else if (userAgent.contains("Safari")) {
-            return  "Safari";
         } else if (userAgent.contains("Chrome") || userAgent.contains("CriOS")) {
             return "Chrome";
+        } else if (userAgent.contains("Safari")) {
+            return  "Safari";
         } else if (userAgent.toLowerCase().contains("postman")) {
             return  "";
         } else {
