@@ -6,7 +6,7 @@ import io.andy.shorten_url.link.entity.Link;
 import io.andy.shorten_url.link.service.LinkService;
 import io.andy.shorten_url.link_analytics.dto.PutAccessLogDto;
 import io.andy.shorten_url.link_analytics.service.LinkAnalyticsService;
-import io.andy.shorten_url.util.ClientMapper;
+import io.andy.shorten_url.util.mapper.ClientMapper;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;

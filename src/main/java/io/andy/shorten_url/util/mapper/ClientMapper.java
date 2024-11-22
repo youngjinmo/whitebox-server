@@ -1,17 +1,31 @@
-package io.andy.shorten_url.util;
+package io.andy.shorten_url.util.mapper;
 
-import io.andy.shorten_url.auth.token.dto.TokenResponseDto;
+import io.andy.shorten_url.exception.client.UnauthorizedException;
+
 import jakarta.servlet.http.HttpServletRequest;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.net.MalformedURLException;
 import java.net.URL;
+
+import java.util.HashMap;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 
 @Slf4j
 public class ClientMapper {
+    public static Map<ClientInfo, String> parseAccessInfo(HttpServletRequest request) {
+        Map<ClientInfo, String> accessInfo = new HashMap<>();
+        accessInfo.put(ClientInfo.IP_ADDRESS, parseClientIp(request));
+        accessInfo.put(ClientInfo.USER_AGENT, parseUserAgent(request));
+        accessInfo.put(ClientInfo.LOCALE, parseLocale(request));
+        accessInfo.put(ClientInfo.REFERER, parseReferer(request));
+        accessInfo.put(ClientInfo.TOKEN, parseAccessToken(request));
+        return accessInfo;
+    }
+
     public static String parseClientIp(HttpServletRequest request) {
         String ip = request.getHeader("X-Forwarded-For");
         if (ip == null || ip.isEmpty()) {
@@ -68,16 +82,13 @@ public class ClientMapper {
         return referer;
     }
 
-    public static TokenResponseDto parseAuthToken(HttpServletRequest request) {
+    public static String parseAuthToken(HttpServletRequest request) {
         String accessToken = parseAccessToken(request);
         if (accessToken== null) {
             log.warn("access token is null");
+            throw new UnauthorizedException();
         }
-        String refreshToken = request.getParameter("refresh_token");
-        if (refreshToken == null) {
-            log.warn("refresh token is null");
-        }
-        return new TokenResponseDto(accessToken, refreshToken);
+        return accessToken;
     }
 
     private static String parseBrowser(String userAgent) {
