@@ -3,6 +3,7 @@ package io.andy.shorten_url.user_log.dto;
 import io.andy.shorten_url.user.constant.UserRole;
 import io.andy.shorten_url.user.constant.UserState;
 import io.andy.shorten_url.user.dto.UserLoginResponseDto;
+import io.andy.shorten_url.user.dto.UserLogoutResponseDto;
 import io.andy.shorten_url.user.dto.UserResponseDto;
 import io.andy.shorten_url.user_log.constant.UserLogMessage;
 
@@ -20,7 +21,7 @@ public record AccessUserInfoDto(
         String ipAddress,
         String userAgent
 ) {
-        public static AccessUserInfoDto of(
+        public static AccessUserInfoDto build(
                 Long userId,
                 UserRole role,
                 UserState state,
@@ -69,4 +70,21 @@ public record AccessUserInfoDto(
                         userAgent
                 );
         }
+
+        public static AccessUserInfoDto build(
+                UserLogoutResponseDto userDto,
+                UserLogMessage logMessage,
+                String ipAddress,
+                String userAgent
+        ) {
+                return new AccessUserInfoDto(
+                        userDto.userId(),
+                        userDto.role(),
+                        userDto.state(),
+                        logMessage,
+                        ipAddress,
+                        userAgent
+                );
+        }
 }
+
