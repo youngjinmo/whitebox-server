@@ -1,8 +1,9 @@
 package io.andy.shorten_url.user.service;
 
 import io.andy.shorten_url.auth.AuthService;
-import io.andy.shorten_url.auth.token.dto.CreateTokenDto;
+import io.andy.shorten_url.auth.token.dto.TokenRequestDto;
 import io.andy.shorten_url.auth.token.dto.TokenResponseDto;
+import io.andy.shorten_url.auth.token.dto.VerifyTokenDto;
 import io.andy.shorten_url.exception.client.BadRequestException;
 import io.andy.shorten_url.exception.client.NotFoundException;
 import io.andy.shorten_url.exception.client.UnauthorizedException;
@@ -28,7 +29,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import static io.andy.shorten_url.auth.AuthPolicy.RESET_PASSWORD_LENGTH;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
@@ -55,7 +55,7 @@ class UserServiceTest {
         when(userRepository.save(any(User.class))).thenReturn(mockUser);
 
         // when
-        UserResponseDto result = userService.createByEmail(CreateUserServiceDto.of(username, givenPassword));
+        UserResponseDto result = userService.createByEmail(CreateUserServiceDto.build(username, givenPassword));
 
         // then
         assertNotNull(result);
@@ -77,7 +77,7 @@ class UserServiceTest {
 
         // when
         BadRequestException exception = assertThrows(
-                BadRequestException.class, () -> userService.createByEmail(CreateUserServiceDto.of(username, givenPassword))
+                BadRequestException.class, () -> userService.createByEmail(CreateUserServiceDto.build(username, givenPassword))
         );
 
         // then
@@ -102,10 +102,10 @@ class UserServiceTest {
 
         when(userRepository.findByUsername(username)).thenReturn(Optional.of(mockUser));
         when(authService.matchPassword(givenPassword, encodedPassword)).thenReturn(true);
-        when(authService.grantAuthToken(any(CreateTokenDto.class))).thenReturn(tokenResponseDto);
+        when(authService.grantAuthToken(any(TokenRequestDto.class))).thenReturn(tokenResponseDto);
 
         // when
-        UserLoginResponseDto result = userService.login(UserLoginServiceDto.of(username, givenPassword, ipAddress, userAgent));
+        UserLoginResponseDto result = userService.login(UserLoginServiceDto.build(username, givenPassword, ipAddress, userAgent));
 
         // then
         assertNotNull(result);
@@ -127,7 +127,7 @@ class UserServiceTest {
 
         // when
         UnauthorizedException exception = assertThrows(UnauthorizedException.class, () ->
-                userService.login(UserLoginServiceDto.of(username, givenPassword, ipAddress, userAgent))
+                userService.login(UserLoginServiceDto.build(username, givenPassword, ipAddress, userAgent))
         );
 
         // then
@@ -153,7 +153,7 @@ class UserServiceTest {
 
         // when
         UnauthorizedException exception = assertThrows(UnauthorizedException.class, () ->
-                userService.login(UserLoginServiceDto.of(username, givenPassword, ipAddress, userAgent))
+                userService.login(UserLoginServiceDto.build(username, givenPassword, ipAddress, userAgent))
         );
 
         // then
@@ -162,23 +162,54 @@ class UserServiceTest {
     }
 
     @Test
+    @DisplayName("탈퇴중인 회원의 회원 로그인시 Forbidden")
+    void throwExceptionWithForbidden() {
+        // given
+        String username = "test@yj.com";
+        String givenPassword = "given_password";
+        String encodedPassword = "encoded_password";
+        String ipAddress = "127.0.0.1";
+        String userAgent = "chrome";
+
+        User mockUser = new User(username, encodedPassword, UserState.WITHDRAWN, UserRole.USER);
+        mockUser.setId(1L);
+
+        when(userRepository.findByUsername(username)).thenReturn(Optional.of(mockUser));
+        when(authService.matchPassword(givenPassword, encodedPassword)).thenReturn(false);
+
+        // when & then
+        assertThrows(UnauthorizedException.class, () ->
+                userService.login(UserLoginServiceDto.build(username, givenPassword, ipAddress, userAgent))
+        );
+    }
+
+    @Test
     @DisplayName("로그아웃 동작 확인")
     void logout() {
         // given
         Long userId = 1L;
+        UserState state = UserState.NORMAL;
+        UserRole role = UserRole.USER;
+        String ipAddress = "127.0.0.1";
+        String userAgent = "chrome";
         String mockToken = "access-token";
+        VerifyTokenDto verifyTokenDto = VerifyTokenDto.build(userId, ipAddress, userAgent, mockToken);
 
-        User mockUser = new User("test@yj.com", "password", UserState.NEW, UserRole.USER);
+        User mockUser = new User("test@yj.com", "password", state, role);
         mockUser.setId(userId);
 
+        when(authService.verifyAuthToken(anyString())).thenReturn(verifyTokenDto);
         when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
-        doNothing().when(authService).revokeAuthToken(userId, mockToken);
+        doNothing().when(authService).revokeAuthToken(mockToken);
 
         // when
-        userService.logout(UserLogoutServiceDto.of(userId, mockToken));
+        UserLogoutResponseDto responseDto = userService.logout(UserLogoutRequestDto.build(mockToken));
 
         // then
-        verify(authService, times(1)).revokeAuthToken(userId, mockToken);
+        verify(authService, times(1)).revokeAuthToken(mockToken);
+        assertEquals(userId, responseDto.userId());
+        assertEquals(state, responseDto.state());
+        assertEquals(role, responseDto.role());
     }
 
     @Test
@@ -346,21 +377,17 @@ class UserServiceTest {
     }
 
     @Test
-    @DisplayName("탈퇴 기능 확인")
-    void deleteById() {
+    @DisplayName("토큰에서 user id 추출")
+    void parseUserIdFromToken() {
         // given
         Long userId = 1L;
-        User mockUser = new User("test@yj.com", "password", UserState.NORMAL, UserRole.USER);
-        mockUser.setId(userId);
+        String mockAccessToken = "mockAccessToken";
 
-        when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
-        doNothing().when(authService).revokeAllSessionsByUserId(userId);
+        when(authService.verifyAuthToken(mockAccessToken)).thenReturn(VerifyTokenDto.build(userId, "127.0.0.1", "Safari", mockAccessToken));
 
-        // when
-        userService.deleteById(DeleteUserServiceDto.of(userId, "127.0.0.1", "chrome"));
-
-        // then
-        verify(authService, times(1)).revokeAllSessionsByUserId(userId);
+        // when & then
+        long parsedUserId = userService.parseUserIdFromToken(mockAccessToken);
+        assertEquals(userId, parsedUserId);
     }
 
     @Test
@@ -373,7 +400,7 @@ class UserServiceTest {
         String expected = "temp-password";
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(authService.generateResetPassword(RESET_PASSWORD_LENGTH)).thenReturn(expected);
+        when(authService.generateResetPassword()).thenReturn(expected);
         when(mailService.createMailMessage(any(MailMessageDto.class))).thenReturn(mock(MimeMessage.class));
         doNothing().when(mailService).sendMail(anyString(), any(MimeMessage.class));
 
@@ -382,6 +409,6 @@ class UserServiceTest {
 
         // then
         assertEquals(expected, actual);
-        verify(authService, times(1)).generateResetPassword(RESET_PASSWORD_LENGTH);
+        verify(authService, times(1)).generateResetPassword();
     }
 }

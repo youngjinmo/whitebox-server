@@ -1,9 +1,11 @@
 package io.andy.shorten_url.user.service;
 
 import io.andy.shorten_url.auth.AuthService;
-import io.andy.shorten_url.auth.token.dto.CreateTokenDto;
+import io.andy.shorten_url.auth.token.dto.TokenRequestDto;
 import io.andy.shorten_url.auth.token.dto.TokenResponseDto;
+import io.andy.shorten_url.auth.token.dto.VerifyTokenDto;
 import io.andy.shorten_url.exception.client.BadRequestException;
+import io.andy.shorten_url.exception.client.ForbiddenException;
 import io.andy.shorten_url.exception.client.NotFoundException;
 import io.andy.shorten_url.exception.client.UnauthorizedException;
 import io.andy.shorten_url.exception.server.InternalServerException;
@@ -30,11 +32,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
-
-import static io.andy.shorten_url.auth.AuthPolicy.*;
 
 @Slf4j
 @Service
@@ -78,6 +79,12 @@ public class UserServiceImpl implements UserService {
             User user = optionalUser.get();
             if (authService.matchPassword(userLoginDto.password(), user.getPassword())) {
 
+                // 탈퇴중인 상태면 접속 불가
+                if (List.of(UserState.WITHDRAWN, UserState.DELETED).contains(user.getState())) {
+                    log.debug("failed to login by invalid user state, id={}, state={}", user.getId(), user.getState());
+                    throw new ForbiddenException("INVALID STATE");
+                }
+
                 // 로그인으로 인한 정보 변경 (상태, 최근접속일)
                 if (user.getState().equals(UserState.NEW)) {
                     // 첫 로그인이면 상태 변경
@@ -86,7 +93,7 @@ public class UserServiceImpl implements UserService {
                 user.setLastLoginAt(LocalDateTime.now());
 
                 // access token, refresh token 발행
-                TokenResponseDto tokenResponseDto = authService.grantAuthToken(CreateTokenDto.of(user.getId(), userLoginDto.ipAddress(), userLoginDto.userAgent()));
+                TokenResponseDto tokenResponseDto = authService.grantAuthToken(TokenRequestDto.build(user.getId(), userLoginDto.ipAddress(), userLoginDto.userAgent()));
 
                 // integrate authentication into spring security
                 Authentication authentication = new UsernamePasswordAuthenticationToken(userLoginDto.username(), userLoginDto.password());
@@ -106,17 +113,22 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
-    public void logout(UserLogoutServiceDto userLogoutDto) {
+    public UserLogoutResponseDto logout(UserLogoutRequestDto userLogoutDto) {
         try {
+            // parse claims from token
+            VerifyTokenDto verifyTokenDto = authService.verifyAuthToken(userLogoutDto.accessToken());
+
             // user id 검증
-            UserResponseDto userResponseDto = findById(userLogoutDto.id());
+            UserResponseDto userResponseDto = findById(verifyTokenDto.getUserId());
 
             // revoke token
-            authService.revokeAuthToken(userLogoutDto.id(), userLogoutDto.accessToken());
+            authService.revokeAuthToken(userLogoutDto.accessToken());
 
             log.info("user logout, id={}", userResponseDto.id());
+            return UserLogoutResponseDto.from(userResponseDto);
         } catch (Exception e) {
-            log.error("failed to logout userId={}. error message={}", userLogoutDto.id(), e.getMessage());
+            VerifyTokenDto verifyTokenDto = authService.verifyAuthToken(userLogoutDto.accessToken());
+            log.error("failed to logout userId={}. error message={}", verifyTokenDto.getUserId(), e.getMessage());
             throw new UnauthorizedException("FAILED TO LOGOUT");
         }
     }
@@ -131,11 +143,17 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    public long parseUserIdFromToken(String token) {
+        return authService.verifyAuthToken(token).getUserId();
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public UserResponseDto findById(Long id) {
         Optional<User> optionalUser = userRepository.findById(id);
         if (optionalUser.isPresent()) {
             User user = optionalUser.get();
+
             return UserResponseDto.from(user);
         }
         throw new NotFoundException("USER NOT FOUND");
@@ -168,7 +186,6 @@ public class UserServiceImpl implements UserService {
             user.setUpdatedAt(LocalDateTime.now());
 
             log.info("updated username by id={}", id);
-
             return UserResponseDto.from(user);
         }
         log.debug("failed to update username by invalid id={}, username={}", id, username);
@@ -186,7 +203,6 @@ public class UserServiceImpl implements UserService {
             user.setUpdatedAt(LocalDateTime.now());
 
             log.info("updated password by id={}", id);
-
             return UserResponseDto.from(user);
         }
         log.debug("failed to update password by invalid id={}", id);
@@ -204,7 +220,6 @@ public class UserServiceImpl implements UserService {
             user.setUpdatedAt(LocalDateTime.now());
 
             log.info("updated state into {} by id={}", state, id);
-
             return UserResponseDto.from(user);
         }
         log.debug("failed to update state by invalid id={}", id);
@@ -225,10 +240,9 @@ public class UserServiceImpl implements UserService {
                 user.setUsername(EncodeUtil.encrypt(user.getUsername()));
                 user.setPassword(EncodeUtil.encrypt(user.getPassword()));
 
-                authService.revokeAllSessionsByUserId(deleteUserDto.id());
+                // TODO delete link
 
                 log.info("user deleted. id={}, ip={}, user-agent={}", deleteUserDto.id(), deleteUserDto.ipAddress(), deleteUserDto.userAgent());
-
             } catch (Exception e) {
                 log.error("failed to delete user by id={}. error message={}", deleteUserDto.id(), e.getMessage());
                 throw new InternalServerException("FAILED TO DELETE USER BY ID");
@@ -249,7 +263,7 @@ public class UserServiceImpl implements UserService {
         Optional<User> userEntity = userRepository.findById(id);
         if (userEntity.isPresent()) {
             User user = userEntity.get();
-            String tempPassword = authService.generateResetPassword(RESET_PASSWORD_LENGTH);
+            String tempPassword = authService.generateResetPassword();
 
             // TODO 추후 메일 템플릿 서비스로 코드 분리
             try {

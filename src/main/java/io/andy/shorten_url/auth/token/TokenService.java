@@ -1,6 +1,6 @@
 package io.andy.shorten_url.auth.token;
 
-import io.andy.shorten_url.auth.token.dto.CreateTokenDto;
+import io.andy.shorten_url.auth.token.dto.TokenRequestDto;
 import io.andy.shorten_url.auth.token.dto.VerifyTokenDto;
 import io.andy.shorten_url.exception.client.BadRequestException;
 import io.andy.shorten_url.exception.client.UnauthorizedException;
@@ -28,41 +28,39 @@ public class TokenService {
         this.subject = "whitebox";
     }
 
-    public String createToken(CreateTokenDto createTokenDto, long tokenTtl) {
+    public String createToken(TokenRequestDto tokenRequestDto, long tokenTtl) {
         Instant current = Instant.now();
         Instant expiration = current.plusMillis(tokenTtl);
 
         return Jwts.builder()
                 .subject(this.subject)
-                .claim("userId", createTokenDto.getUserId())
-                .claim("userAgent", createTokenDto.getUserAgent())
-                .claim("ipAddress", createTokenDto.getIpAddress())
+                .claim("userId", tokenRequestDto.getUserId())
+                .claim("userAgent", tokenRequestDto.getUserAgent())
+                .claim("ipAddress", tokenRequestDto.getIpAddress())
                 .issuedAt(Date.from(current))
                 .expiration(Date.from(expiration))
                 .signWith(secretKey)
                 .compact();
     }
 
-    public void verifyToken(VerifyTokenDto verifyTokenDto) {
-        // 토큰 만료 확인
-        if (isTokenExpired(verifyTokenDto.getToken())) {
+    public VerifyTokenDto verifyToken(String accessToken) {
+        // validate token expiration
+        if (isTokenExpired(accessToken)) {
             throw new TokenExpiredException();
         }
-        // 토큰 발행 서버 확인
-        if (isInvalidTokenSubject(verifyTokenDto.getToken())) {
-            log.debug("wrong token subject while verify token, userId={}", verifyTokenDto.getUserId());
+
+        // parse claims from token
+        Long userId = parsePayload(accessToken, "userId", Long.class);
+        String userAgent = parsePayload(accessToken, "userAgent", String.class);
+        String ipAddress = parsePayload(accessToken, "ipAddress", String.class);
+
+        // check token server
+        if (isInvalidTokenSubject(accessToken)) {
+            log.debug("wrong token subject while verify token, userId={}", userId);
             throw new BadRequestException("WRONG TOKEN REQUEST");
         }
-        // 토큰 claims 확인
-        Long userId = parsePayload(verifyTokenDto.getToken(), "userId", Long.class);
-        String userAgent = parsePayload(verifyTokenDto.getToken(), "userAgent", String.class);
-        String ipAddress = parsePayload(verifyTokenDto.getToken(), "ipAddress", String.class);
-        if (!userId.equals(verifyTokenDto.getUserId()) ||
-                !userAgent.equals(verifyTokenDto.getUserAgent()) ||
-                !ipAddress.equals(verifyTokenDto.getIpAddress())
-        ) {
-            throw new UnauthorizedException("UNAUTHORIZED TOKEN");
-        }
+
+        return VerifyTokenDto.build(userId, ipAddress, userAgent, accessToken);
     }
 
     private boolean isTokenExpired(String token) {

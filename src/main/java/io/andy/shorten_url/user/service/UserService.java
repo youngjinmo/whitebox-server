@@ -8,8 +8,9 @@ import java.util.List;
 public interface UserService {
     UserResponseDto createByEmail(CreateUserServiceDto userDto);
     UserLoginResponseDto login(UserLoginServiceDto userDto);
-    void logout(UserLogoutServiceDto userDto);
+    UserLogoutResponseDto logout(UserLogoutRequestDto userDto);
     List<UserResponseDto> findAllUsers(List<UserState> states);
+    long parseUserIdFromToken(String token);
     UserResponseDto findById(Long id);
     UserResponseDto findByUsername(String username);
     UserResponseDto updateUsernameById(Long id, String username);
