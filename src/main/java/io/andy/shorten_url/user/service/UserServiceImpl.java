@@ -292,6 +292,10 @@ public class UserServiceImpl implements UserService {
     @Transactional
     public void sendEmailAuthCode(String recipient) {
         try {
+            if (isDuplicateUsername(recipient)) {
+                throw new ForbiddenException("EMAIL DUPLICATED");
+            }
+
             String verificationCode = authService.sendEmailVerificationCode(recipient);
 
             // TODO 추후 메일 템플릿 서비스로 코드 분리
