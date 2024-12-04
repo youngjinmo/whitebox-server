@@ -32,7 +32,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -114,10 +113,9 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public UserLogoutResponseDto logout(UserLogoutRequestDto userLogoutDto) {
+        // parse claims from token
+        VerifyTokenDto verifyTokenDto = authService.verifyAuthToken(userLogoutDto.accessToken());
         try {
-            // parse claims from token
-            VerifyTokenDto verifyTokenDto = authService.verifyAuthToken(userLogoutDto.accessToken());
-
             // user id 검증
             UserResponseDto userResponseDto = findById(verifyTokenDto.getUserId());
 
@@ -127,7 +125,6 @@ public class UserServiceImpl implements UserService {
             log.info("user logout, id={}", userResponseDto.id());
             return UserLogoutResponseDto.from(userResponseDto);
         } catch (Exception e) {
-            VerifyTokenDto verifyTokenDto = authService.verifyAuthToken(userLogoutDto.accessToken());
             log.error("failed to logout userId={}. error message={}", verifyTokenDto.getUserId(), e.getMessage());
             throw new UnauthorizedException("FAILED TO LOGOUT");
         }
@@ -258,34 +255,73 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    @Transactional
-    public String resetPassword(Long id) {
-        Optional<User> userEntity = userRepository.findById(id);
-        if (userEntity.isPresent()) {
-            User user = userEntity.get();
-            String tempPassword = authService.generateResetPassword();
-
-            // TODO 추후 메일 템플릿 서비스로 코드 분리
-            try {
-                String subject = "[Shorten-url] 비밀번호 초기화";
-                String body = "비밀번호가 아래의 번호로 초기화되었습니다.<br><h3>"+tempPassword+"</h3>";
-                MailMessageDto messageDto = new MailMessageDto(user.getUsername(), subject, body);
-                MimeMessage message = mailService.createMailMessage(messageDto);
-
-                mailService.sendMail(user.getUsername(), message);
-            } catch (MessagingException | MailException e) {
-                log.error("failed to send email reset password, " +
-                        "recipient = {}, error message = {}, stack trace = {}",
-                        user.getUsername(), e.getMessage(), e.getStackTrace());
-                throw new InternalServerException("FAILED TO SEND RESET PASSWORD BY EMAIL");
+    public void findPassword(FindPasswordDto findPasswordDto) {
+        try {
+            // authenticate username
+            Optional<User> userEntity = userRepository.findByUsername(findPasswordDto.username());
+            if (userEntity.isEmpty()) {
+                throw new NotFoundException("USER NOT FOUND");
             }
+
+            // create verification code
+            String sessionKey = authService.createVerificationResetPasswordKey(findPasswordDto.username());
+
+            // set verification code into redis
+            String verificationCode = authService.setEmailVerificationCode(findPasswordDto.username(), sessionKey);
+
+            // create email text box
+            String resetPasswordLink = String.format("%s:%s/reset-password?username=%s&verificationCode=%s",
+                    findPasswordDto.serverDomain(), findPasswordDto.port(), findPasswordDto.username(), verificationCode);
+
+            String subject = "[Shorten-url] 비밀번호 초기화 링크";
+            String body = "아래의 링크를 접속하면 비밀번호가 초기화됩니다.<br>"+resetPasswordLink;
+            MailMessageDto messageDto = new MailMessageDto(findPasswordDto.username(), subject, body);
+            MimeMessage message = mailService.createMailMessage(messageDto);
+
+            // send email
+            mailService.sendMail(findPasswordDto.username(), message);
+            log.info("send reset password link to={}", findPasswordDto.username());
+        } catch (MessagingException e) {
+            log.error("failed to send reset password link email, to={}", findPasswordDto.username());
+            throw new InternalServerException("FAILED SEND MAIL");
+        }
+    }
+
+    @Override
+    @Transactional
+    public String resetPassword(String username, String verificationCode) {
+        // verify code
+        if (!authService.verifyResetPasswordCode(username, verificationCode)) {
+           throw new ForbiddenException("EXPIRED VERIFICATION CODE");
+        }
+
+        Optional<User> userEntity = userRepository.findByUsername(username);
+        if (userEntity.isEmpty()) {
+            log.debug("failed to reset password by invalid username={}", username);
+            throw new UnauthorizedException("FAILED TO RESET PASSWORD BY DOES NOT EXIST USER");
+        }
+        User user = userEntity.get();
+        String tempPassword = authService.generateResetPassword();
+
+        // TODO 추후 메일 템플릿 서비스로 코드 분리
+        try {
+            String subject = "[Shorten-url] 비밀번호 초기화";
+            String body = "비밀번호가 아래의 번호로 초기화되었습니다.<br><h3>"+tempPassword+"</h3>";
+            MailMessageDto messageDto = new MailMessageDto(user.getUsername(), subject, body);
+            MimeMessage message = mailService.createMailMessage(messageDto);
+
             user.setPassword(authService.encodePassword(tempPassword));
-            log.info("success to reset password. user id={}", id);
+            log.info("success to reset password. username={}", username);
+
+            mailService.sendMail(user.getUsername(), message);
+            log.info("sent new password to={}", username);
 
             return tempPassword;
+        } catch (MessagingException | MailException e) {
+            log.error("failed to send email reset password, recipient = {}, error message = {}, stack trace = {}",
+                    user.getUsername(), e.getMessage(), e.getStackTrace());
+            throw new InternalServerException("FAILED TO SEND RESET PASSWORD BY EMAIL");
         }
-        log.debug("failed to reset password by invalid id={}", id);
-        throw new BadRequestException("FAILED TO RESET PASSWORD BY DOES NOT EXIST USER");
     }
 
     @Override
@@ -296,7 +332,8 @@ public class UserServiceImpl implements UserService {
                 throw new ForbiddenException("EMAIL DUPLICATED");
             }
 
-            String verificationCode = authService.sendEmailVerificationCode(recipient);
+            String sessionKey = authService.createVerificationEmailKey(recipient);
+            String verificationCode = authService.setEmailVerificationCode(recipient, sessionKey);
 
             // TODO 추후 메일 템플릿 서비스로 코드 분리
             String subject = "[Shorten-url] 이메일 인증";

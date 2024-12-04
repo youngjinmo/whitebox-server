@@ -1,9 +1,9 @@
 package io.andy.shorten_url.util;
 
 import io.andy.shorten_url.exception.client.UnauthorizedException;
-
 import io.andy.shorten_url.util.mapper.ClientInfo;
 import io.andy.shorten_url.util.mapper.ClientMapper;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -116,4 +116,23 @@ class ClientMapperTest {
 
         assertThrows(UnauthorizedException.class, () -> ClientMapper.parseAuthToken(request));
     }
+
+    @ParameterizedTest
+    @CsvSource(value = {"localhost, http://localhost", "whitebox, https://whitebox"})
+    @DisplayName("server 이름 파싱")
+    void parseServerName(String givenServerName, String expected) {
+        request.setServerName(givenServerName);
+        String serverName = ClientMapper.parseServerName(request);
+        assertEquals(expected, serverName);
+    }
+
+    @Test
+    @DisplayName("port 파싱")
+    void parseServerPort() {
+        int port = 9090;
+        request.setServerPort(port);
+        String serverPort = ClientMapper.parseServerPort(request);
+        assertEquals(String.valueOf(port), serverPort);
+    }
 }
+

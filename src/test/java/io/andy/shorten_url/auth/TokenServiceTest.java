@@ -1,6 +1,7 @@
 package io.andy.shorten_url.auth;
 
 import io.andy.shorten_url.auth.token.TokenService;
+import io.andy.shorten_url.auth.token.dto.CreateTokenDto;
 import io.andy.shorten_url.auth.token.dto.TokenRequestDto;
 import io.andy.shorten_url.auth.token.dto.VerifyTokenDto;
 import io.andy.shorten_url.exception.server.TokenExpiredException;
@@ -24,7 +25,7 @@ class TokenServiceTest {
         TokenRequestDto tokenRequestDto = TokenRequestDto.build(userId, userAgent, ipAddress);
 
         // when
-        String token = tokenService.createToken(tokenRequestDto, 1000 * 60);
+        String token = tokenService.createToken(CreateTokenDto.of(tokenRequestDto, 1000 * 60));
 
         // then
         assertNotNull(token);
@@ -40,7 +41,7 @@ class TokenServiceTest {
         String userAgent = "Firefox";
 
         TokenRequestDto tokenRequestDto = TokenRequestDto.build(1L, ipAddress, userAgent);
-        String firstToken = tokenService.createToken(tokenRequestDto, ACCESS_TOKEN_EXPIRATION);
+        String firstToken = tokenService.createToken(CreateTokenDto.of(tokenRequestDto, ACCESS_TOKEN_EXPIRATION));
         VerifyTokenDto verifyTokenDto = VerifyTokenDto.build(1L, ipAddress, userAgent, firstToken);
 
         // when
@@ -57,7 +58,7 @@ class TokenServiceTest {
     void verifyTokenWithException() throws InterruptedException {
         // given
         TokenRequestDto tokenRequestDto = TokenRequestDto.build(1L, "firefox", "127.0.0.1");
-        String accessToken = tokenService.createToken(tokenRequestDto, 1000); // for a second
+        String accessToken = tokenService.createToken(CreateTokenDto.of(tokenRequestDto, 1000)); // for a second
 
         // when & then
         Thread.sleep(1000 * 2); // after 2 seconds

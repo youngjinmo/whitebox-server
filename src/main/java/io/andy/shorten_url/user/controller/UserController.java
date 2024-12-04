@@ -2,6 +2,7 @@ package io.andy.shorten_url.user.controller;
 
 import io.andy.shorten_url.exception.client.BadRequestException;
 import io.andy.shorten_url.exception.client.ForbiddenException;
+import io.andy.shorten_url.exception.client.NotFoundException;
 import io.andy.shorten_url.exception.client.UnauthorizedException;
 import io.andy.shorten_url.user.constant.UserState;
 import io.andy.shorten_url.user.dto.*;
@@ -101,7 +102,7 @@ public class UserController {
         }
     }
 
-    @GetMapping("/verify-email")
+    @PostMapping("/verify/email")
     public ResponseEntity<String> verifyEmailAuth(@RequestParam String verificationCode, @RequestParam String recipient) {
         try {
             userService.verifyEmail(recipient, verificationCode);
@@ -201,7 +202,7 @@ public class UserController {
     }
 
     @PatchMapping("/password")
-    public ResponseEntity<UserResponseDto> updatePassword(HttpServletRequest request, String givenPassword) {
+    public ResponseEntity<String> updatePassword(HttpServletRequest request, @RequestBody String givenPassword) {
         try {
             // parse client access into
             Map<ClientInfo, String> clientInfo = ClientMapper.parseAccessInfo(request);
@@ -211,7 +212,7 @@ public class UserController {
 
             userLogService.putUpdateInfoLog(UpdatePrivacyInfoDto.build(
                     userDto,
-                    UserLogMessage.DELETE_USER,
+                    UserLogMessage.UPDATE_PASSWORD,
                     clientInfo.get(ClientInfo.IP_ADDRESS),
                     clientInfo.get(ClientInfo.USER_AGENT))
             );
@@ -273,17 +274,52 @@ public class UserController {
         }
     }
 
-    @PatchMapping("/reset-password")
-    public ResponseEntity<String> resetPassword(HttpServletRequest request, @RequestBody String username) {
+    /**
+     * 비밀번호 초기화 전 이메일 주소 인증
+     *
+     * @param request
+     * @param username
+     * @return
+     */
+    @PostMapping("/find-password")
+    public ResponseEntity<String> findPassword(HttpServletRequest request, @RequestBody String username) {
         try {
+            String serverAddress = ClientMapper.parseServerName(request);
+            String port = ClientMapper.parseServerPort(request);
+
+            // authenticate username and send verification code by mail
+            userService.findPassword(FindPasswordDto
+                    .build(username,serverAddress, port)
+            );
+
+            return ResponseEntity.ok().build();
+        } catch (NotFoundException | UnauthorizedException e) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, e.getMessage());
+        } catch (ForbiddenException e) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, e.getMessage());
+        }catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage());
+        }
+    }
+
+    /**
+     * verificationCode와 username 쿼리스트링으로 받아서 비밀번호 초기화 진행
+     *
+     * @param request
+     * @param username
+     * @param verificationCode
+     * @return
+     */
+    @PatchMapping("/reset-password")
+    public ResponseEntity<String> resetPassword(HttpServletRequest request, @RequestParam String username, @RequestParam String verificationCode) {
+        try {
+            // authenticate username and reset password
+            String newPassword = userService.resetPassword(username, verificationCode);
+
             // parse client access into
             Map<ClientInfo, String> clientInfo = ClientMapper.parseAccessInfo(request);
-
-            UserResponseDto userDto = userService.findByUsername(username);
-            String newPassword = userService.resetPassword(userDto.id());
-
             userLogService.putUpdateInfoLog(UpdatePrivacyInfoDto.build(
-                    userDto,
+                    userService.findByUsername(username),
                     UserLogMessage.UPDATE_PASSWORD,
                     clientInfo.get(ClientInfo.IP_ADDRESS),
                     clientInfo.get(ClientInfo.USER_AGENT))
@@ -291,8 +327,10 @@ public class UserController {
 
             return ResponseEntity.ok(newPassword);
         } catch (UnauthorizedException e) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, e.getMessage());
-        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(e.getMessage());
+        } catch (ForbiddenException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
+        }catch (Exception e) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage());
         }
     }

@@ -11,6 +11,9 @@ public interface AuthService {
     TokenResponseDto grantAuthToken(TokenRequestDto tokenRequestDto);
     VerifyTokenDto verifyAuthToken(String accessToken);
     void revokeAuthToken(String token);
-    String sendEmailVerificationCode(String recipient);
+    String createVerificationEmailKey(String recipient);
+    String createVerificationResetPasswordKey(String recipient);
+    String setEmailVerificationCode(String recipient, String sessionKey);
+    boolean verifyResetPasswordCode(String username, String verificationCode);
     void verifyEmail(String recipient, String verificationCode);
 }

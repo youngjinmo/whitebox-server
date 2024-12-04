@@ -1,10 +1,11 @@
 package io.andy.shorten_url.auth;
 
 import io.andy.shorten_url.auth.token.TokenService;
+import io.andy.shorten_url.auth.token.dto.CreateTokenDto;
 import io.andy.shorten_url.auth.token.dto.TokenResponseDto;
 import io.andy.shorten_url.auth.token.dto.TokenRequestDto;
 import io.andy.shorten_url.auth.token.dto.VerifyTokenDto;
-import io.andy.shorten_url.exception.client.BadRequestException;
+import io.andy.shorten_url.exception.client.ForbiddenException;
 import io.andy.shorten_url.exception.client.NotFoundException;
 import io.andy.shorten_url.exception.client.UnauthorizedException;
 import io.andy.shorten_url.exception.server.InternalServerException;
@@ -107,7 +108,7 @@ public class AuthServiceImpl implements AuthService {
             try {
                 String refreshToken = getAuthTokenByKey(tokenKey);
                 revokeAuthToken(refreshToken);
-            } catch (NullPointerException | UnauthorizedException ex) {
+            } catch (UnauthorizedException ex) {
                 throw new UnauthorizedException("EXPIRED REFRESH TOKEN");
             }
 
@@ -149,18 +150,26 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    public String createVerificationEmailKey(String recipient) {
+        return String.format("%s:%s", EMAIL_AUTH_SESSION_KEY_PREFIX, recipient);
+    }
+
+    @Override
+    public String createVerificationResetPasswordKey(String recipient) {
+        return String.format("%s:%s", RESET_PASSWORD_SESSION_KEY_PREFIX, recipient);
+    }
+
+    @Override
     @Transactional
-    public String sendEmailVerificationCode(String recipient) {
-        // create session key
-        String key = createVerificationEmailKey(recipient);
+    public String setEmailVerificationCode(String recipient, String sessionKey) {
 
         // check already sent verification code
         try {
-            Object sent = sessionService.get(key);
+            Object sent = sessionService.get(sessionKey);
             if (sent != null) {
-                throw new BadRequestException("ALREADY SENT EMAIL VERIFICATION CODE");
+                throw new ForbiddenException("ALREADY SENT EMAIL VERIFICATION CODE");
             }
-        } catch (BadRequestException e) {
+        } catch (ForbiddenException e) {
             throw e;
         }catch (Exception e) {
             log.warn("failed to check already sent email auth verification code, recipient = {}, error message={}", recipient, e.getMessage());
@@ -171,7 +180,7 @@ public class AuthServiceImpl implements AuthService {
 
         try {
             // save session in to the session storage
-            sessionService.set(key, verificationCode, EMAIL_AUTH_SESSION_ACTIVE_TIME);
+            sessionService.set(sessionKey, verificationCode, EMAIL_AUTH_SESSION_ACTIVE_TIME);
             log.debug("save email verification code into the session storage");
         } catch (Exception e) {
             log.error("failed to send email verification code, userId={}", recipient, e);
@@ -197,12 +206,22 @@ public class AuthServiceImpl implements AuthService {
         log.info("verified email {}", recipient);
     }
 
+    @Override
+    public boolean verifyResetPasswordCode(String username, String verificationCode) {
+        String sessionKey = createVerificationResetPasswordKey(username);
+        Object code = sessionService.get(sessionKey);
+        if (code instanceof String && ((String) code).equals(verificationCode)) {
+            return true;
+        }
+        return false;
+    }
+
     private String createAccessToken(TokenRequestDto tokenRequestDto) {
-        return tokenService.createToken(tokenRequestDto, ACCESS_TOKEN_EXPIRATION);
+        return tokenService.createToken(CreateTokenDto.of(tokenRequestDto, ACCESS_TOKEN_EXPIRATION));
     }
 
     private String createRefreshToken(TokenRequestDto tokenRequestDto) {
-        return tokenService.createToken(tokenRequestDto, REFRESH_TOKEN_EXPIRATION);
+        return tokenService.createToken(CreateTokenDto.of(tokenRequestDto, REFRESH_TOKEN_EXPIRATION));
     }
 
     private String getAuthTokenByKey(String key) {
@@ -228,9 +247,5 @@ public class AuthServiceImpl implements AuthService {
 
     private String createSessionValue(Long userId, String refreshToken) {
         return String.format("%d:%s", userId, refreshToken);
-    }
-
-    private String createVerificationEmailKey(String recipient) {
-        return String.format("%s:%s", EMAIL_AUTH_SESSION_KEY_PREFIX, recipient);
     }
 }

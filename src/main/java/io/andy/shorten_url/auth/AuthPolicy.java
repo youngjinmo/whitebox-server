@@ -9,6 +9,7 @@ public final class AuthPolicy {
 
     // email verification code
     public static final String EMAIL_AUTH_SESSION_KEY_PREFIX = "auth:email";
+    public static final String RESET_PASSWORD_SESSION_KEY_PREFIX = "auth:reset-password";
     public static final int EMAIL_AUTH_SESSION_ACTIVE_TIME = 1000 * 60 * 15; // 15 분
     public static final int SECRET_CODE_LENGTH = 6;
 

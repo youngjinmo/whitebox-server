@@ -26,6 +26,18 @@ public class ClientMapper {
         return accessInfo;
     }
 
+    public static String parseServerName(HttpServletRequest request) {
+        String serverName = request.getServerName();
+        if (serverName.equals("localhost")) {
+            return "http://".concat(serverName);
+        }
+        return "https://".concat(serverName);
+    }
+
+    public static String parseServerPort(HttpServletRequest request) {
+        return String.valueOf(request.getServerPort());
+    }
+
     public static String parseClientIp(HttpServletRequest request) {
         String ip = request.getHeader("X-Forwarded-For");
         if (ip == null || ip.isEmpty()) {
@@ -84,7 +96,7 @@ public class ClientMapper {
 
     public static String parseAuthToken(HttpServletRequest request) {
         String accessToken = parseAccessToken(request);
-        if (accessToken== null) {
+        if (accessToken == null || accessToken.isEmpty()) {
             log.warn("access token is null");
             throw new UnauthorizedException();
         }

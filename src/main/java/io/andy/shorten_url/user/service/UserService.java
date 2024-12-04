@@ -18,7 +18,8 @@ public interface UserService {
     UserResponseDto updateStateById(Long id, UserState state);
     void deleteById(DeleteUserServiceDto userDto);
     boolean isDuplicateUsername(String username);
-    String resetPassword(Long id);
+    void findPassword(FindPasswordDto findPasswordDto);
+    String resetPassword(String username, String verificationCode);
     void sendEmailAuthCode(String recipient);
     void verifyEmail(String recipient, String verificationCode);
 }
