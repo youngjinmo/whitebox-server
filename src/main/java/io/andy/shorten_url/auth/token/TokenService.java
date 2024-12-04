@@ -1,6 +1,6 @@
 package io.andy.shorten_url.auth.token;
 
-import io.andy.shorten_url.auth.token.dto.TokenRequestDto;
+import io.andy.shorten_url.auth.token.dto.CreateTokenDto;
 import io.andy.shorten_url.auth.token.dto.VerifyTokenDto;
 import io.andy.shorten_url.exception.client.BadRequestException;
 import io.andy.shorten_url.exception.client.UnauthorizedException;
@@ -28,15 +28,15 @@ public class TokenService {
         this.subject = "whitebox";
     }
 
-    public String createToken(TokenRequestDto tokenRequestDto, long tokenTtl) {
+    public String createToken(CreateTokenDto createTokenDto) {
         Instant current = Instant.now();
-        Instant expiration = current.plusMillis(tokenTtl);
+        Instant expiration = current.plusMillis(createTokenDto.getTokenLiveTime());
 
         return Jwts.builder()
                 .subject(this.subject)
-                .claim("userId", tokenRequestDto.getUserId())
-                .claim("userAgent", tokenRequestDto.getUserAgent())
-                .claim("ipAddress", tokenRequestDto.getIpAddress())
+                .claim("userId", createTokenDto.getUserId())
+                .claim("userAgent", createTokenDto.getUserAgent())
+                .claim("ipAddress", createTokenDto.getIpAddress())
                 .issuedAt(Date.from(current))
                 .expiration(Date.from(expiration))
                 .signWith(secretKey)

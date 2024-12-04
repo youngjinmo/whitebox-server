@@ -5,6 +5,7 @@ import io.andy.shorten_url.auth.token.dto.TokenRequestDto;
 import io.andy.shorten_url.auth.token.dto.TokenResponseDto;
 import io.andy.shorten_url.auth.token.dto.VerifyTokenDto;
 import io.andy.shorten_url.exception.client.BadRequestException;
+import io.andy.shorten_url.exception.client.ForbiddenException;
 import io.andy.shorten_url.exception.client.NotFoundException;
 import io.andy.shorten_url.exception.client.UnauthorizedException;
 import io.andy.shorten_url.user.constant.UserRole;
@@ -175,10 +176,10 @@ class UserServiceTest {
         mockUser.setId(1L);
 
         when(userRepository.findByUsername(username)).thenReturn(Optional.of(mockUser));
-        when(authService.matchPassword(givenPassword, encodedPassword)).thenReturn(false);
+        when(authService.matchPassword(givenPassword, encodedPassword)).thenReturn(true);
 
         // when & then
-        assertThrows(UnauthorizedException.class, () ->
+        assertThrows(ForbiddenException.class, () ->
                 userService.login(UserLoginServiceDto.build(username, givenPassword, ipAddress, userAgent))
         );
     }
@@ -391,24 +392,53 @@ class UserServiceTest {
     }
 
     @Test
-    @DisplayName("패스워드 리셋")
-    void resetPassword() throws MessagingException {
+    @DisplayName("비밀번호 초기화 링크 전송")
+    void findPassword() throws MessagingException {
         // given
-        Long userId = 1L;
-        User user = new User("test@yj.com", "password", UserState.NEW, UserRole.USER);
-        user.setId(userId);
-        String expected = "temp-password";
+        String username = "test@gmail.com";
+        String password = "password";
+        User mockUser = new User(username, password, UserState.NEW, UserRole.USER);
+        mockUser.setId(1L);
 
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(authService.generateResetPassword()).thenReturn(expected);
+        String mockSessionKey = "test:key";
+        String verificationCode = "VERIFY";
+
+        when(userRepository.findByUsername(username)).thenReturn(Optional.of(mockUser));
+        when(authService.createVerificationResetPasswordKey(username)).thenReturn(mockSessionKey);
+        when(authService.setEmailVerificationCode(username, mockSessionKey)).thenReturn(verificationCode);
         when(mailService.createMailMessage(any(MailMessageDto.class))).thenReturn(mock(MimeMessage.class));
         doNothing().when(mailService).sendMail(anyString(), any(MimeMessage.class));
 
+        // when & then
+        assertDoesNotThrow(() -> userService.findPassword(FindPasswordDto.build(username, "localhost", "8080")));
+        verify(mailService, times(1)).createMailMessage(any(MailMessageDto.class));
+        verify(mailService, times(1)).sendMail(anyString(), any(MimeMessage.class));
+    }
+
+    @Test
+    @DisplayName("패스워드 리셋")
+    void resetPassword() throws MessagingException {
+        // given
+        String username = "test@gmail.com";
+        String password = "password";
+        User mockUser = new User(username, password, UserState.NEW, UserRole.USER);
+        mockUser.setId(1L);
+
+        String verificationCode= "VERIFY";
+
+        when(authService.verifyResetPasswordCode(username, verificationCode)).thenReturn(true);
+        when(userRepository.findByUsername(username)).thenReturn(Optional.of(mockUser));
+        when(authService.generateResetPassword()).thenReturn("password");
+        when(mailService.createMailMessage(any(MailMessageDto.class))).thenReturn(mock(MimeMessage.class));
+        when(authService.encodePassword(password)).thenReturn("encoded-password");
+        doNothing().when(mailService).sendMail(anyString(), any(MimeMessage.class));
+
         // when
-        String actual = userService.resetPassword(userId);
+        String actual = userService.resetPassword(username, verificationCode);
 
         // then
-        assertEquals(expected, actual);
+        assertEquals(password, actual);
         verify(authService, times(1)).generateResetPassword();
+        verify(mailService, times(1)).sendMail(anyString(), any(MimeMessage.class));
     }
 }

@@ -1,10 +1,11 @@
 package io.andy.shorten_url.auth;
 
 import io.andy.shorten_url.auth.token.TokenService;
+import io.andy.shorten_url.auth.token.dto.CreateTokenDto;
 import io.andy.shorten_url.auth.token.dto.TokenResponseDto;
 import io.andy.shorten_url.auth.token.dto.TokenRequestDto;
 import io.andy.shorten_url.auth.token.dto.VerifyTokenDto;
-import io.andy.shorten_url.exception.client.BadRequestException;
+import io.andy.shorten_url.exception.client.ForbiddenException;
 import io.andy.shorten_url.exception.client.UnauthorizedException;
 import io.andy.shorten_url.exception.server.TokenExpiredException;
 import io.andy.shorten_url.util.random.RandomUtility;
@@ -65,7 +66,7 @@ class AuthServiceTest {
         String mockAccessToken = "mock-access-token";
         String mockRefreshToken = "mock-refresh-token";
 
-        when(tokenService.createToken(any(TokenRequestDto.class), anyLong()))
+        when(tokenService.createToken(any(CreateTokenDto.class)))
                 .thenReturn(mockAccessToken)
                 .thenReturn(mockRefreshToken);
         doNothing().when(sessionService).set(anyString(), anyString(), anyLong());
@@ -119,7 +120,7 @@ class AuthServiceTest {
                 .thenReturn(VerifyTokenDto.build(userId, ipAddress, userAgent, mockAccessToken));
         when(sessionService.get(anyString())).thenReturn(sessionValue);
         doNothing().when(sessionService).delete(anyString());
-        when(tokenService.createToken(any(TokenRequestDto.class), anyLong()))
+        when(tokenService.createToken(any(CreateTokenDto.class)))
                 .thenReturn("new-access-token")
                 .thenReturn("new-refresh-token");
 
@@ -171,13 +172,14 @@ class AuthServiceTest {
     void sendEmailVerificationCode() {
         // given
         String mockVerificationCode = "mock-verification-code";
+        String mockSessionKey = "auth:email";
 
         when(sessionService.get(anyString())).thenReturn(null);
         when(randomUtility.generate(SECRET_CODE_LENGTH)).thenReturn(mockVerificationCode);
         doNothing().when(sessionService).set(anyString(), anyString(), anyLong());
 
         // when
-        String result = authService.sendEmailVerificationCode(mockVerificationCode);
+        String result = authService.setEmailVerificationCode(mockVerificationCode, mockSessionKey);
         assertEquals(mockVerificationCode, result);
         verify(sessionService, times(1)).set(anyString(), anyString(), anyLong());
     }
@@ -197,16 +199,17 @@ class AuthServiceTest {
     }
 
     @Test
-    @DisplayName("중복으로 이메일 인증 요구시 예외(401)")
+    @DisplayName("중복으로 이메일 인증 요구시 예외(403)")
     void throwBadRequestByMultipleRequestVerificationCode() {
         // given
         String mockEmail = "test@gmail.com";
         String mockVerificationCode = "mock-verification-code";
+        String mockSessionKey = "auth:email";
 
         when(sessionService.get(anyString())).thenReturn(mockVerificationCode);
 
         // when
-        BadRequestException exception = assertThrows(BadRequestException.class, () -> authService.sendEmailVerificationCode(mockEmail));
+        ForbiddenException exception = assertThrows(ForbiddenException.class, () -> authService.setEmailVerificationCode(mockEmail, mockSessionKey));
         assertEquals("ALREADY SENT EMAIL VERIFICATION CODE", exception.getMessage());
     }
 
@@ -221,6 +224,17 @@ class AuthServiceTest {
 
         // when & then
         assertThrows(UnauthorizedException.class, () -> authService.verifyEmail(mockEmail, mockVerificationCode));
+    }
+
+    @Test
+    @DisplayName("패스워드 초기화 코드 검증")
+    void verifyResetPasswordCode() {
+        String mockEmail = "test@gmail.com";
+        String mockVerificationCode = "mock-verification-code";
+        when(sessionService.get(anyString())).thenReturn(mockVerificationCode);
+
+        boolean result = authService.verifyResetPasswordCode(mockEmail, mockVerificationCode);
+        assertTrue(result);
     }
 
     private String createSessionValue(Long userId, String refreshToken) {

@@ -166,12 +166,12 @@ class UserControllerTest {
         doNothing().when(userService).verifyEmail(email, verificationCode);
 
         // when & then
-        mockMvc.perform(get("/api/user/verify-email")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .queryParam("recipient", email)
-                    .queryParam("verificationCode", verificationCode))
-                    .andExpect(status().isOk())
-                    .andExpect(content().string("verified"));
+        mockMvc.perform(post("/api/user/verify/email")
+                .contentType(MediaType.APPLICATION_JSON)
+                .queryParam("verificationCode", verificationCode)
+                .queryParam("recipient", email))
+                .andExpect(status().isOk())
+                .andExpect(content().string("verified"));
     }
 
     @Test
@@ -237,6 +237,44 @@ class UserControllerTest {
     }
 
     @Test
+    @DisplayName("비밀번호 초기화 위한 이메일 인증코드 발송")
+    void authenticateResetPassword() throws Exception {
+        // given
+        String username = "test@gmail.com";
+
+        doNothing().when(userService).findPassword(any(FindPasswordDto.class));
+
+        // when & then
+        mockMvc.perform(post("/api/user/find-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(username))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("비밀번호 초기화")
     void resetPassword() throws Exception {
+        // given
+        String mockUsername = "test@gmail.com";
+        String mockVerificationCode = "VERIFY";
+        String newPassword = "newPassword";
+
+        User mockUser = new User(mockUsername, "given-password", UserState.NORMAL, UserRole.USER);
+        mockUser.setId(1L);
+
+        when(userService.resetPassword(anyString(), anyString())).thenReturn(newPassword);
+        when(userService.findByUsername(mockUsername)).thenReturn(UserResponseDto.from(mockUser));
+        doNothing().when(userLogService).putUpdateInfoLog(any(UpdatePrivacyInfoDto.class));
+
+        // when & then
+        mockMvc.perform(patch("/api/user/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer mock-access-token")
+                        .header("X-Forwarded-For", "127.0.0.1")
+                        .header("User-Agent", "test")
+                        .queryParam("username", mockUsername)
+                        .queryParam("verificationCode", mockVerificationCode))
+                .andExpect(status().isOk())
+                .andExpect(content().string(newPassword));
     }
 }

@@ -1,6 +1,7 @@
 package io.andy.shorten_url.config;
 
 import io.andy.shorten_url.exception.server.InternalServerException;
+
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
