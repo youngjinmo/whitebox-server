@@ -275,6 +275,6 @@ class UserControllerTest {
                         .queryParam("username", mockUsername)
                         .queryParam("verificationCode", mockVerificationCode))
                 .andExpect(status().isOk())
-                .andExpect(content().string(newPassword));
+                .andExpect(content().string("success"));
     }
 }
