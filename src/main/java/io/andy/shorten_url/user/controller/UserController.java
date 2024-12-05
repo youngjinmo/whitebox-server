@@ -90,13 +90,13 @@ public class UserController {
     }
 
     @PostMapping("/email-verification-code")
-    public ResponseEntity<Void> sendEmailAuth(@RequestBody String recipient) {
+    public ResponseEntity<String> sendEmailAuth(@RequestBody String recipient) {
         try {
             this.userService.sendEmailAuthCode(recipient);
 
-            return ResponseEntity.ok().build();
+            return ResponseEntity.ok("success");
         } catch (ForbiddenException e) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, e.getMessage());
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
         } catch (Exception e) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage());
         }
@@ -109,12 +109,12 @@ public class UserController {
 
             return ResponseEntity.ok("verified");
         } catch (Exception e) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, e.getMessage());
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(e.getMessage());
         }
     }
 
     @DeleteMapping("/logout")
-    public ResponseEntity<Void> logout(HttpServletRequest request) {
+    public ResponseEntity<String> logout(HttpServletRequest request) {
         try {
             // parse client access into
             Map<ClientInfo, String> accessInfo = ClientMapper.parseAccessInfo(request);
@@ -130,9 +130,9 @@ public class UserController {
                     accessInfo.get(ClientInfo.USER_AGENT))
             );
 
-            return ResponseEntity.ok().build();
+            return ResponseEntity.ok("success");
         } catch (UnauthorizedException e) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, e.getMessage());
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(e.getMessage());
         } catch (Exception e) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage());
         }
@@ -176,7 +176,7 @@ public class UserController {
     }
 
     @PatchMapping("/username")
-    public ResponseEntity<UserResponseDto> updateUsername(HttpServletRequest request, @RequestBody String givenUsername) {
+    public ResponseEntity<String> updateUsername(HttpServletRequest request, @RequestBody String givenUsername) {
         try {
             // parse token from request
             String accessToken = ClientMapper.parseAuthToken(request);
@@ -193,9 +193,9 @@ public class UserController {
                     givenUsername)
             );
 
-            return ResponseEntity.ok(postUser);
+            return ResponseEntity.ok("success");
         } catch (UnauthorizedException e) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, e.getMessage());
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(e.getMessage());
         } catch (Exception e) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage());
         }
@@ -217,16 +217,16 @@ public class UserController {
                     clientInfo.get(ClientInfo.USER_AGENT))
             );
 
-            return ResponseEntity.ok(userDto);
+            return ResponseEntity.ok("success");
         } catch (UnauthorizedException e) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, e.getMessage());
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(e.getMessage());
         } catch (Exception e) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage());
         }
     }
 
     @PatchMapping("/state")
-    public ResponseEntity<UserResponseDto> updateState(HttpServletRequest request, @RequestBody UserState givenState) {
+    public ResponseEntity<String> updateState(HttpServletRequest request, @RequestBody UserState givenState) {
         try {
             String accessToken = ClientMapper.parseAuthToken(request);
 
@@ -235,22 +235,22 @@ public class UserController {
             UserResponseDto userDto = userService.updateStateById(userId, givenState);
 
             userLogService.putUpdateInfoLog(UpdateUserInfoDto.build(
-                    previousUserDto,
+                    userDto,
                     UserLogMessage.UPDATE_STATE,
                     previousUserDto.state().name(),
                     givenState.name())
             );
 
-            return ResponseEntity.ok(userDto);
+            return ResponseEntity.ok("success");
         } catch (UnauthorizedException e) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, e.getMessage());
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(e.getMessage());
         } catch (Exception e) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage());
         }
     }
 
     @DeleteMapping("/withdraw")
-    public ResponseEntity<Void> withdrawUser(HttpServletRequest request) {
+    public ResponseEntity<String> withdrawUser(HttpServletRequest request) {
         try {
             // parse client access into
             Map<ClientInfo, String> clientInfo = ClientMapper.parseAccessInfo(request);
@@ -266,9 +266,9 @@ public class UserController {
                     clientInfo.get(ClientInfo.USER_AGENT))
             );
 
-            return ResponseEntity.ok().build();
+            return ResponseEntity.ok("success");
         } catch (UnauthorizedException e) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, e.getMessage());
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(e.getMessage());
         } catch (Exception e) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage());
         }
@@ -292,11 +292,11 @@ public class UserController {
                     .build(username,serverAddress, port)
             );
 
-            return ResponseEntity.ok().build();
+            return ResponseEntity.ok("success");
         } catch (NotFoundException | UnauthorizedException e) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, e.getMessage());
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(e.getMessage());
         } catch (ForbiddenException e) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, e.getMessage());
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
         }catch (Exception e) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage());
         }
@@ -314,7 +314,7 @@ public class UserController {
     public ResponseEntity<String> resetPassword(HttpServletRequest request, @RequestParam String username, @RequestParam String verificationCode) {
         try {
             // authenticate username and reset password
-            String newPassword = userService.resetPassword(username, verificationCode);
+            userService.resetPassword(username, verificationCode);
 
             // parse client access into
             Map<ClientInfo, String> clientInfo = ClientMapper.parseAccessInfo(request);
@@ -325,12 +325,12 @@ public class UserController {
                     clientInfo.get(ClientInfo.USER_AGENT))
             );
 
-            return ResponseEntity.ok(newPassword);
+            return ResponseEntity.ok("success");
         } catch (UnauthorizedException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(e.getMessage());
         } catch (ForbiddenException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
-        }catch (Exception e) {
+        } catch (Exception e) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage());
         }
     }
