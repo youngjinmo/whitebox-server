@@ -1,6 +1,7 @@
 package io.andy.shorten_url.link.controller;
 
 import io.andy.shorten_url.link.constant.LinkState;
+import io.andy.shorten_url.link.dto.CreateFreeLinkDto;
 import io.andy.shorten_url.link.dto.CreateLinkDto;
 import io.andy.shorten_url.link.entity.Link;
 import io.andy.shorten_url.link.service.LinkService;
@@ -33,11 +34,19 @@ public class LinkController {
     private final LinkService linkService;
     private final LinkAnalyticsService linkAnalyticsService;
 
+    @PostMapping("/api/link/free/create")
+    public ResponseEntity<String> createFreeLink(HttpServletRequest request, @RequestBody String redirectionUrl) {
+        String ipAddress = ClientMapper.parseClientIp(request);
+        Link link = linkService.createFreeLink(new CreateFreeLinkDto(redirectionUrl, ipAddress));
+        log.info("free created link, ip={}, link={}", ipAddress, link);
+        return ResponseEntity.status(HttpStatus.CREATED).body(link.getUrlPath());
+    }
+
     @PostMapping("/api/link/create")
-    public ResponseEntity<Link> createLink(@RequestBody CreateLinkDto createLinkDto) {
+    public ResponseEntity<String> createLink(@RequestBody CreateLinkDto createLinkDto) {
         Link link = linkService.createLink(createLinkDto);
         log.info("created link: {}", link);
-        return ResponseEntity.status(HttpStatus.CREATED).body(link);
+        return ResponseEntity.status(HttpStatus.CREATED).body(link.getUrlPath());
     }
 
     @GetMapping("/api/link/all")

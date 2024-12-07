@@ -5,6 +5,7 @@ import io.andy.shorten_url.exception.client.NotFoundException;
 import io.andy.shorten_url.exception.server.InternalServerException;
 import io.andy.shorten_url.link.constant.LinkPolicy;
 import io.andy.shorten_url.link.constant.LinkState;
+import io.andy.shorten_url.link.dto.CreateFreeLinkDto;
 import io.andy.shorten_url.link.dto.CreateLinkDto;
 import io.andy.shorten_url.link.entity.Link;
 import io.andy.shorten_url.link.repository.LinkRepository;
@@ -39,16 +40,37 @@ public class LinkServiceImpl implements LinkService {
     }
 
     @Override
+    public Link createFreeLink(CreateFreeLinkDto linkDto) {
+        if (!Validator.validateUrl(linkDto.redirectionUrl())) {
+            throw new IllegalArgumentException("Invalid redirection URL");
+        }
+
+        // check ip in db(mysql/redis) if has created link
+
+        // check duplicate url
+        String shortenUrlPath = generateRandomUrlPath();
+
+        // create link & save link in db
+        Link link = linkRepository.save(new Link(
+                LinkState.PUBLIC,
+                shortenUrlPath,
+                linkDto.redirectionUrl()
+        ));
+
+        // put log
+        log.info("created link by free, linkId={}, ip={}", link, linkDto.ipAddress());
+
+        return link;
+    }
+
+    @Override
     public Link createLink(CreateLinkDto linkDto) {
         if (!Validator.validateUrl(linkDto.redirectionUrl())) {
-            throw new BadRequestException("Invalid redirection URL");
+            throw new IllegalArgumentException("Invalid redirection URL");
         }
 
         // TODO 링크가 많아졌을 경우 무한루프 발생할 가능성 존재, 방어코드 필요
-        String shortenUrlPath;
-        do {
-            shortenUrlPath = randomUtility.generate(LinkPolicy.URL_PATH_LENGTH);
-        } while (!isUniqueUrlPath(shortenUrlPath));
+        String shortenUrlPath = generateRandomUrlPath();
         try {
             Link link = linkRepository.save(new Link(
                     linkDto.userId(),
@@ -147,6 +169,18 @@ public class LinkServiceImpl implements LinkService {
             log.debug("공개된 링크가 아니기에 접근할 수 없습니다. link id={}, state={}", id, link.getState());
             throw new BadRequestException("FAILED TO ACCESS LINK");
         }
+    }
+
+    /**
+     * generate random url path after check duplication
+     * @return UrlPath
+     */
+    private String generateRandomUrlPath() {
+        String shortenUrlPath = "";
+        do {
+            shortenUrlPath = randomUtility.generate(LinkPolicy.URL_PATH_LENGTH);
+        } while (!isUniqueUrlPath(shortenUrlPath));
+        return shortenUrlPath;
     }
 }
 

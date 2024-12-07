@@ -3,6 +3,7 @@ package io.andy.shorten_url.link.entity;
 import io.andy.shorten_url.link.constant.LinkState;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Null;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -18,6 +19,7 @@ public class Link {
     private Long id;
     @Enumerated(EnumType.STRING)
     private LinkState state;
+    @Null
     private Long userId;
     private String urlPath;
     private String redirectionUrl;
@@ -28,13 +30,14 @@ public class Link {
 
     protected Link() {}
 
-    public Link(
-            Long userId,
-            LinkState state,
-            String urlPath,
-            String redirectionUrl
-    ) {
+    public Link(Long userId, LinkState state, String urlPath, String redirectionUrl) {
         this.userId = userId;
+        this.state = state;
+        this.urlPath = urlPath;
+        this.redirectionUrl = redirectionUrl;
+    }
+
+    public Link(LinkState state, String urlPath, String redirectionUrl) {
         this.state = state;
         this.urlPath = urlPath;
         this.redirectionUrl = redirectionUrl;
